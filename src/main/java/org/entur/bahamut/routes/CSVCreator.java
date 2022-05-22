@@ -16,8 +16,7 @@ public class CSVCreator {
         public String toString() {
             if (value == null) {
                 return "";
-            }
-            if (json) {
+            } else if (json) {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
                     StringWriter writer = new StringWriter();
@@ -43,19 +42,22 @@ public class CSVCreator {
     public void create(List<ElasticsearchCommand> commands) {
 
         Set<String> headers = new java.util.HashSet<>();
-        headers.add(CSVHeader.ID);
-        headers.add(CSVHeader.INDEX);
-        headers.add(CSVHeader.TYPE);
-        headers.add(CSVHeader.NAME);
-        headers.add(CSVHeader.ALIAS);
-        headers.add(CSVHeader.LATITUDE);
-        headers.add(CSVHeader.LONGITUDE);
-        headers.add(CSVHeader.ADDRESS_STREET);
-        headers.add(CSVHeader.ADDRESS_NUMBER);
-        headers.add(CSVHeader.ADDRESS_ZIP);
-        headers.add(CSVHeader.POPULARITY);
-        headers.add(CSVHeader.CATEGORY);
-        headers.add(CSVHeader.DESCRIPTION);
+        headers.add(ID);
+        headers.add(INDEX);
+        headers.add(TYPE);
+        headers.add(NAME);
+        headers.add(ALIAS);
+        headers.add(LATITUDE);
+        headers.add(LONGITUDE);
+        headers.add(ADDRESS_STREET);
+        headers.add(ADDRESS_NUMBER);
+        headers.add(ADDRESS_ZIP);
+        headers.add(POPULARITY);
+        headers.add(CATEGORY);
+        headers.add(DESCRIPTION);
+        headers.add(SOURCE);
+        headers.add(SOURCE_ID);
+        headers.add(LAYER);
 
         List<Map<String, CSVValue>> csvCommands = commands.stream().map(command -> {
             Map<String, CSVValue> map = new HashMap<>();
@@ -97,6 +99,8 @@ public class CSVCreator {
                 map.put(CATEGORY, CSVJsonValue(peliasDocument.getCategory()));
                 map.put(DESCRIPTION, CSVJsonValue(peliasDocument.getDescriptionMap()));
                 map.put(SOURCE, CSVValue(peliasDocument.getSource()));
+                map.put(SOURCE_ID, CSVValue(peliasDocument.getSourceId()));
+                map.put(LAYER, CSVValue(peliasDocument.getLayer()));
             }
             return map;
         }).toList();
