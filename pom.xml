@@ -19,6 +19,7 @@
         <spring-cloud.version>2021.0.2</spring-cloud.version>
         <camel.version>3.16.0</camel.version>
         <geotools.version>20.3</geotools.version>
+        <entur.helpers.version>1.0.70</entur.helpers.version>
     </properties>
     <dependencies>
         <dependency>
@@ -34,15 +35,14 @@
             <artifactId>camel-spring-boot-starter</artifactId>
             <version>3.16.0</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.camel.springboot</groupId>
+            <artifactId>camel-quartz-starter</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.camel</groupId>
-            <artifactId>camel-google-storage</artifactId>
         </dependency>
         <dependency>
             <groupId>com.opencsv</groupId>
@@ -60,6 +60,30 @@
             <groupId>de.grundid.opendatalab</groupId>
             <artifactId>geojson-jackson</artifactId>
             <version>1.8.1</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.11.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.entur.helpers</groupId>
+            <artifactId>gcp-storage</artifactId>
+            <version>${entur.helpers.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.servlet</groupId>
+                    <artifactId>servlet-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-codec-http2</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-lite</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
     </dependencies>

@@ -39,7 +39,7 @@ public class CSVCreator {
         return new CSVValue(value, true);
     }
 
-    public void create(List<ElasticsearchCommand> commands) {
+    public InputStream create(List<ElasticsearchCommand> commands) {
 
         Set<String> headers = new java.util.HashSet<>();
         headers.add(ID);
@@ -111,8 +111,9 @@ public class CSVCreator {
                         .toArray(String[]::new))
                 .toList();
 
-        File file = new File("/Users/mansoor.sajjad/local-gcs-storage/bahamut/output.csv");
-        try (CSVWriter writer = new CSVWriter(new FileWriter(file.getAbsolutePath()))) {
+//        File file = new File("/Users/mansoor.sajjad/local-gcs-storage/bahamut/output.csv");
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (CSVWriter writer = new CSVWriter(new OutputStreamWriter(outputStream))) {
             writer.writeNext(headers.toArray(String[]::new));
             for (String[] array : stringArrays) {
                 writer.writeNext(array);
@@ -120,5 +121,58 @@ public class CSVCreator {
         } catch (IOException exception) {
             throw new RuntimeException("Fail to create csv.", exception);
         }
+
+        return new ByteArrayInputStream(outputStream.toByteArray());
+
+
+/*
+        PipedInputStream in = new PipedInputStream();
+        try (PipedOutputStream out = new PipedOutputStream(in)) {
+            new Thread(
+                    () -> {
+                        try {
+                            outputStream.writeTo(out);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+            ).start();
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to copy with pipe");
+        }
+
+        try {
+            OutputStream outStream = new FileOutputStream(file);
+
+            byte[] buffer = new byte[8 * 1024];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                outStream.write(buffer, 0, bytesRead);
+            }
+            IOUtils.closeQuietly(in);
+            IOUtils.closeQuietly(outStream);
+
+        } catch (Exception ex) {
+
+        }
+
+ */
+
+        /*
+        try (OutputStream outStream = new FileOutputStream(file)) {
+            InputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+
+            byte[] buffer = new byte[8 * 1024];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outStream.write(buffer, 0, bytesRead);
+            }
+
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed: :(");
+        }
+
+         */
+
     }
 }

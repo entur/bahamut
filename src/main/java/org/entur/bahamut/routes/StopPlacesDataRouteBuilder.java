@@ -1,51 +1,180 @@
 package org.entur.bahamut.routes;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.Message;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.component.file.GenericFile;
 import org.entur.bahamut.routes.json.PeliasDocument;
 import org.entur.bahamut.routes.mapper.StopPlaceBoostConfiguration;
 import org.entur.bahamut.routes.mapper.StopPlaceToPeliasMapper;
 import org.entur.bahamut.routes.mapper.TopographicPlaceToPeliasMapper;
+import org.entur.bahamut.services.BahamutBlobStoreService;
+import org.entur.bahamut.services.KakkaBlobStoreService;
 import org.entur.netex.NetexParser;
 import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.rutebanken.netex.model.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+
+import static org.entur.bahamut.services.BlobStoreService.FILE_HANDLE;
 
 @Component
 public class StopPlacesDataRouteBuilder extends RouteBuilder {
 
-    @Value("${stop-places-netex-input-files-path}")
-    private static String netexInputPath;
+    @Value("${bahamut.camel.redelivery.max:3}")
+    private int maxRedelivery;
 
-    @Autowired
+    @Value("${bahamut.camel.redelivery.delay:5000}")
+    private int redeliveryDelay;
+
+    @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
+    private int backOffMultiplier;
+
+    @Value("${pelias.update.cron.schedule:0+0/2+*+1/1+*+?+*}")
+    private String cronSchedule;
+
+    @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
+    private String tiamatGeocoderFile;
+
+    @Value("${blobstore.gcs.bahamut.geocoder.file:tiamat_export_geocoder_latest.zip}")
+    private String bahamutGeocoderFile;
+
+    @Value("${bahamut.workdir:/tmp/tiamat/geocoder}")
+    private String bahamutWorkDir;
+
     private final StopPlaceBoostConfiguration stopPlaceBoostConfiguration;
+    private final KakkaBlobStoreService kakkaBlobStoreService;
+    private final BahamutBlobStoreService bahamutBlobStoreService;
 
-    public StopPlacesDataRouteBuilder(StopPlaceBoostConfiguration stopPlaceBoostConfiguration) {
+    public StopPlacesDataRouteBuilder(
+            StopPlaceBoostConfiguration stopPlaceBoostConfiguration,
+            KakkaBlobStoreService kakkaBlobStoreService,
+            BahamutBlobStoreService bahamutBlobStoreService) {
         this.stopPlaceBoostConfiguration = stopPlaceBoostConfiguration;
+        this.kakkaBlobStoreService = kakkaBlobStoreService;
+        this.bahamutBlobStoreService = bahamutBlobStoreService;
     }
 
     @Override
     public void configure() throws Exception {
 
-        from("file:/Users/mansoor.sajjad/local-gcs-storage/kakka-dev/tiamat/geocoder?delete=false")
+        errorHandler(defaultErrorHandler()
+                .redeliveryDelay(redeliveryDelay)
+                .maximumRedeliveries(maxRedelivery)
+                .onRedelivery(this::logRedelivery)
+                .useExponentialBackOff()
+                .backOffMultiplier(backOffMultiplier)
+                .logExhausted(true)
+                .logRetryStackTrace(true));
+
+        from("quartz://bahamut/peliasUpdate?cron=" + cronSchedule + "&trigger.timeZone=Europe/Oslo")
+                .process(exchange -> {
+                    Message in = exchange.getIn();
+                })
+                .setHeader(FILE_HANDLE, constant(tiamatGeocoderFile))
+                .bean(kakkaBlobStoreService, "getBlob")
+                .process(exchange -> {
+                    Message in = exchange.getIn();
+                })
+                .setHeader("bahamutWorkDir", constant(bahamutWorkDir))
+                .process(StopPlacesDataRouteBuilder::unzipFile)
                 .process(StopPlacesDataRouteBuilder::parseNetexFile)
                 .process(this::fromDeliveryPublicationStructure)
-                .bean(new CSVCreator());
+                .bean(new CSVCreator())
+                .setHeader(FILE_HANDLE, constant(bahamutGeocoderFile))
+                .process(StopPlacesDataRouteBuilder::zipFile)
+                .process(exchange -> {
+                    Message in = exchange.getIn();
+                })
+                .bean(bahamutBlobStoreService, "uploadBlob");
     }
 
-    private static void parseNetexFile(Exchange exchange) throws FileNotFoundException {
+    protected void logRedelivery(Exchange exchange) {
+        int redeliveryCounter = exchange.getIn().getHeader("CamelRedeliveryCounter", Integer.class);
+        int redeliveryMaxCounter = exchange.getIn().getHeader("CamelRedeliveryMaxCounter", Integer.class);
+        Throwable camelCaughtThrowable = exchange.getProperty("CamelExceptionCaught", Throwable.class);
+
+        log.warn("Exchange failed, redelivering the message locally, attempt {}/{}...", redeliveryCounter, redeliveryMaxCounter, camelCaughtThrowable);
+    }
+
+    private static void parseNetexFile(Exchange exchange) {
         var parser = new NetexParser();
-        exchange.getIn().setBody(parser.parse(new FileInputStream(exchange.getIn().getBody(GenericFile.class).getAbsoluteFilePath())));
+        try (Stream<Path> paths = Files.walk(Paths.get(exchange.getIn().getHeader("bahamutWorkDir", String.class)))) {
+            paths.filter(Files::isRegularFile).findFirst().ifPresent(path -> {
+                try (InputStream inputStream = new FileInputStream(path.toFile())) {
+                    exchange.getIn().setBody(parser.parse(inputStream));
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void unzipFile(Exchange exchange) {
+        InputStream inputStream = exchange.getIn().getBody(InputStream.class);
+        String targetFolder = exchange.getIn().getHeader("bahamutWorkDir", String.class);
+        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
+            byte[] buffer = new byte[1024];
+            ZipEntry zipEntry = zis.getNextEntry();
+            while (zipEntry != null) {
+                String fileName = zipEntry.getName();
+//                logger.info("unzipping file {} in folder {} ", fileName, targetFolder);
+
+                Path path = Path.of(targetFolder + "/" + fileName);
+                if (Files.isDirectory(path)) {
+                    path.toFile().mkdirs();
+                    continue;
+                }
+
+                File parent = path.toFile().getParentFile();
+                if (parent != null) {
+                    parent.mkdirs();
+                }
+
+
+                FileOutputStream fos = new FileOutputStream(path.toFile());
+                int len;
+                while ((len = zis.read(buffer)) > 0) {
+                    fos.write(buffer, 0, len);
+                }
+                fos.close();
+                zipEntry = zis.getNextEntry();
+            }
+            zis.closeEntry();
+        } catch (IOException ioE) {
+            throw new RuntimeException("Unzipping archive failed: " + ioE.getMessage(), ioE);
+        }
+    }
+
+    public static void zipFile(Exchange exchange) {
+        InputStream inputStream = exchange.getIn().getBody(InputStream.class);
+        try {
+            byte[] inputBytes = inputStream.readAllBytes();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ZipOutputStream zos = new ZipOutputStream(baos);
+            ZipEntry entry = new ZipEntry("tiamat_csv_export_geocoder_latest.csv");
+            entry.setSize(inputBytes.length);
+            zos.putNextEntry(entry);
+            zos.write(inputBytes);
+            zos.closeEntry();
+            zos.close();
+            exchange.getIn().setBody(new ByteArrayInputStream(baos.toByteArray()));
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to add file to zip: " + ex.getMessage(), ex);
+        }
     }
 
     private void fromDeliveryPublicationStructure(Exchange exchange) {
