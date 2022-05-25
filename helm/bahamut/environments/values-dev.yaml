@@ -1,0 +1,9 @@
+env: dev
+replicas: 1
+
+gcp:
+  kakka:
+    bucketName: kakka-dev
+
+  bahamut:
+    bucketName: bahamut-dev

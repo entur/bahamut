@@ -1,0 +1,10 @@
+image:
+  identifier: ${artifact.metadata.image}
+  imagePullPolicy: Always
+
+resources:
+  cpuLimit: "2"
+  memLimit: 2700Mi
+  cpuRequest: "1"
+  memRequest: 2500Mi
+  xmx: 2000m
