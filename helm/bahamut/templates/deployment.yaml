@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "bahamut.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "common.labels" . | indent 4 }}
+spec:
+  progressDeadlineSeconds: 600
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: bahamut
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "{{ .Values.service.http.internalPort }}"
+        prometheus.io/scrape: "true"
+        scheduler.alpha.kubernetes.io/affinity: |
+          {
+            "nodeAffinity": {
+              "requiredDuringSchedulingIgnoredDuringExecution": {
+                "nodeSelectorTerms": [
+                  { "matchExpressions":
+                    [ {"key": "track", "operator": "NotIn", "values": ["build"] } ]
+                  }
+                ]
+              }
+            }
+          }
+      labels:
+    {{- include "common.labels" . | indent 8 }}
+    spec:
+      containers:
+        - name: bahamut
+          image: {{ .Values.image.identifier }}
+          env:
+            - name: JDK_JAVA_OPTIONS
+              value: -server -Xmx{{ .Values.resources.xmx }} -Xss512k -XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90
+                -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40 -XX:ActiveProcessorCount={{ .Values.resources.cpuRequest }}
+                -Dspring.config.location=/etc/application-config/application.properties
+                -Dfile.encoding=UTF-8
+            - name: TZ
+              value: Europe/Oslo
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /etc/bahamut-service-account/credentials.json
+          ports:
+            - containerPort: {{ .Values.service.http.internalPort }}
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: {{ .Values.service.http.internalPort }}
+              scheme: HTTP
+            initialDelaySeconds: 140
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: {{ .Values.service.http.internalPort }}
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+            timeoutSeconds: 10
+          resources:
+            limits:
+              cpu: {{ .Values.resources.cpuLimit }}
+              memory: {{ .Values.resources.memLimit }}
+            requests:
+              cpu: {{ .Values.resources.cpuRequest }}
+              memory: {{ .Values.resources.memRequest }}
+          volumeMounts:
+            - mountPath: /etc/bahamut-service-account
+              name: bahamut-service-account
+              readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 80
+      volumes:
+        - name: bahamut-service-account
+          secret:
+            defaultMode: 420
+            secretName: ror-bahamut-sa-key
+        - name: application-config
+          configMap:
+            defaultMode: 420
+            name: bahamut-config
