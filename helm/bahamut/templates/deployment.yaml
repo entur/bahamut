@@ -70,10 +70,13 @@ spec:
             - mountPath: /etc/bahamut-service-account
               name: bahamut-service-account
               readOnly: true
+            - mountPath: /etc/application-config
+              name: application-config
+              readOnly: true
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext: {}
+      securityContext: { }
       terminationGracePeriodSeconds: 80
       volumes:
         - name: bahamut-service-account
