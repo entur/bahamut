@@ -1,11 +1,10 @@
 apiVersion: v1
 data:
   application.properties: |+
-
-  blobstore.gcs.bahamut.bucket.name={{ .Values.gcp.bahamut.bucketName }}
-  blobstore.gcs.kakka.bucket.name={{ .Values.gcp.kakka.bucketName }}
-  blobstore.gcs.kakka.tiamat.geocoder.file=tiamat/geocoder/tiamat_export_geocoder_latest.zip
-  blobstore.gcs.bahamut.geocoder.file=tiamat_export_geocoder_latest.zip
+    blobstore.gcs.bahamut.bucket.name={{ .Values.gcp.bahamut.bucketName }}
+    blobstore.gcs.kakka.bucket.name={{ .Values.gcp.kakka.bucketName }}
+    blobstore.gcs.kakka.tiamat.geocoder.file=tiamat/geocoder/tiamat_export_geocoder_latest.zip
+    blobstore.gcs.bahamut.geocoder.file=tiamat_export_geocoder_latest.zip
 
 kind: ConfigMap
 metadata:

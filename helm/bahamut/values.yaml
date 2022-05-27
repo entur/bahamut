@@ -8,3 +8,7 @@ resources:
   cpuRequest: "1"
   memRequest: 2500Mi
   xmx: 2000m
+
+service:
+  http:
+    internalPort: 9001

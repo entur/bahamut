@@ -100,7 +100,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .bean(bahamutBlobStoreService, "uploadBlob");
     }
 
-    protected void logRedelivery(Exchange exchange) {
+    private void logRedelivery(Exchange exchange) {
         int redeliveryCounter = exchange.getIn().getHeader("CamelRedeliveryCounter", Integer.class);
         int redeliveryMaxCounter = exchange.getIn().getHeader("CamelRedeliveryMaxCounter", Integer.class);
         Throwable camelCaughtThrowable = exchange.getProperty("CamelExceptionCaught", Throwable.class);

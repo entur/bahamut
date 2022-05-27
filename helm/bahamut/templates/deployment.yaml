@@ -19,23 +19,6 @@ spec:
     type: RollingUpdate
   template:
     metadata:
-      annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
-        prometheus.io/path: /actuator/prometheus
-        prometheus.io/port: "{{ .Values.service.http.internalPort }}"
-        prometheus.io/scrape: "true"
-        scheduler.alpha.kubernetes.io/affinity: |
-          {
-            "nodeAffinity": {
-              "requiredDuringSchedulingIgnoredDuringExecution": {
-                "nodeSelectorTerms": [
-                  { "matchExpressions":
-                    [ {"key": "track", "operator": "NotIn", "values": ["build"] } ]
-                  }
-                ]
-              }
-            }
-          }
       labels:
     {{- include "common.labels" . | indent 8 }}
     spec:
