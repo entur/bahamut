@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.routes.json;
+package org.entur.bahamut.camel.routes.json;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -29,81 +29,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Document model stored in elasticsearch for Pelias
- */
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class PeliasDocument {
 
-
     public static final String DEFAULT_SOURCE = "whosonfirst";
+    public static final Long DEFAULT_POPULARITY = 1L;
 
     // Valid sources for querying: "osm,oa,gn,wof,openstreetmap,openaddresses,geonames,whosonfirst"
-    @JsonProperty("source")
     private String source = DEFAULT_SOURCE;
-
-    @JsonProperty("layer")
     private String layer;
-
-    @JsonProperty("source_id")
     private String sourceId;
-
-    @JsonProperty("name")
     private Map<String, String> nameMap;
-
-    @JsonProperty("phrase")
     private Map<String, String> phraseMap;
-
-    @JsonProperty("description")
     private Map<String, String> descriptionMap;
-
-    @JsonProperty("alias_name")
     private Map<String, String> aliasMap;
-
-    @JsonProperty("center_point")
     private GeoPoint centerPoint;
-
-    @JsonProperty("shape")
     private Polygon shape;
-
-    @JsonProperty("boudning_box")
     private String boundingBox;
-
-    @JsonProperty("address_parts")
     private AddressParts addressParts;
-
-    @JsonProperty("parent")
     private Parent parent;
-
-    @JsonProperty("population")
-    private Long population;
-
-    @JsonProperty("popularity")
-    private Long popularity;
-
-    @JsonProperty("category")
+    private long population;
+    private long popularity = 1L;
     private List<String> category;
-
-    @JsonProperty("category_filter")
     private List<String> categoryFilter;
-
-    @JsonProperty("tariff_zones")
     private List<String> tariffZones;
-
-    @JsonProperty("tariff_zone_authorities")
     private List<String> tariffZoneAuthorities;
 
-    private PeliasDocument() {
-    }
-
     public PeliasDocument(String layer, String sourceId) {
-        this.layer = layer;
-        this.sourceId = sourceId;
-    }
-
-
-    public PeliasDocument(String layer, String source, String sourceId) {
-        this.source = source;
         this.layer = layer;
         this.sourceId = sourceId;
     }

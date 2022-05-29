@@ -1,4 +1,4 @@
-package org.entur.bahamut.routes.mapper;
+package org.entur.bahamut.camel.routes.mapper;
 
 import net.opengis.gml._3.AbstractRingType;
 import net.opengis.gml._3.LinearRingType;

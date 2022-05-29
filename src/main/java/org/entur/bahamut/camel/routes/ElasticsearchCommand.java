@@ -14,14 +14,14 @@
  *
  */
 
-package org.entur.bahamut.routes;
+package org.entur.bahamut.camel.routes;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.entur.bahamut.routes.json.PeliasDocument;
+import org.entur.bahamut.camel.routes.json.PeliasDocument;
 
 import java.io.IOException;
 import java.io.StringWriter;

@@ -1,35 +1,15 @@
-package org.entur.bahamut.routes;
+package org.entur.bahamut.camel.csv;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVWriter;
-import org.entur.bahamut.routes.json.PeliasDocument;
+import org.entur.bahamut.camel.routes.ElasticsearchCommand;
+import org.entur.bahamut.camel.routes.json.PeliasDocument;
 
 import java.io.*;
 import java.util.*;
 
-import static org.entur.bahamut.routes.CSVHeader.*;
+import static org.entur.bahamut.camel.csv.CSVHeaders.*;
 
-public class CSVCreator {
-
-    private record CSVValue(Object value, boolean json) {
-        @Override
-        public String toString() {
-            if (value == null) {
-                return "";
-            } else if (json) {
-                try {
-                    ObjectMapper mapper = new ObjectMapper();
-                    StringWriter writer = new StringWriter();
-                    mapper.writeValue(writer, value);
-                    return writer.toString();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            } else {
-                return value.toString();
-            }
-        }
-    }
+public final class CSVCreator {
 
     private static CSVValue CSVValue(Object value) {
         return new CSVValue(value, false);
@@ -111,7 +91,6 @@ public class CSVCreator {
                         .toArray(String[]::new))
                 .toList();
 
-//        File file = new File("/Users/mansoor.sajjad/local-gcs-storage/bahamut/output.csv");
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         try (CSVWriter writer = new CSVWriter(new OutputStreamWriter(outputStream))) {
             writer.writeNext(headers.toArray(String[]::new));
@@ -123,56 +102,5 @@ public class CSVCreator {
         }
 
         return new ByteArrayInputStream(outputStream.toByteArray());
-
-
-/*
-        PipedInputStream in = new PipedInputStream();
-        try (PipedOutputStream out = new PipedOutputStream(in)) {
-            new Thread(
-                    () -> {
-                        try {
-                            outputStream.writeTo(out);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-            ).start();
-        } catch (Exception ex) {
-            throw new RuntimeException("Failed to copy with pipe");
-        }
-
-        try {
-            OutputStream outStream = new FileOutputStream(file);
-
-            byte[] buffer = new byte[8 * 1024];
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                outStream.write(buffer, 0, bytesRead);
-            }
-            IOUtils.closeQuietly(in);
-            IOUtils.closeQuietly(outStream);
-
-        } catch (Exception ex) {
-
-        }
-
- */
-
-        /*
-        try (OutputStream outStream = new FileOutputStream(file)) {
-            InputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
-
-            byte[] buffer = new byte[8 * 1024];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outStream.write(buffer, 0, bytesRead);
-            }
-
-        } catch (Exception ex) {
-            throw new RuntimeException("Failed: :(");
-        }
-
-         */
-
     }
 }

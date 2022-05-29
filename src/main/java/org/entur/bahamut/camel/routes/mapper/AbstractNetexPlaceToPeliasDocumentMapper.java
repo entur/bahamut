@@ -14,14 +14,14 @@
  *
  */
 
-package org.entur.bahamut.routes.mapper;
+package org.entur.bahamut.camel.routes.mapper;
 
 
 import org.apache.commons.lang3.StringUtils;
-import org.entur.bahamut.routes.PlaceHierarchy;
-import org.entur.bahamut.routes.json.AddressParts;
-import org.entur.bahamut.routes.json.GeoPoint;
-import org.entur.bahamut.routes.json.PeliasDocument;
+import org.entur.bahamut.camel.routes.json.AddressParts;
+import org.entur.bahamut.camel.routes.json.PeliasDocument;
+import org.entur.bahamut.camel.placeHierarchy.PlaceHierarchy;
+import org.entur.bahamut.camel.routes.json.GeoPoint;
 import org.rutebanken.netex.model.LocationStructure;
 import org.rutebanken.netex.model.MultilingualString;
 import org.rutebanken.netex.model.Place_VersionStructure;

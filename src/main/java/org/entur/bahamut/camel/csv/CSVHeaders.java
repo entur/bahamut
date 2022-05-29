@@ -1,8 +1,6 @@
-package org.entur.bahamut.routes;
+package org.entur.bahamut.camel.csv;
 
-import java.util.Set;
-
-public interface CSVHeader {
+public interface CSVHeaders {
     String ID = "id";
     String INDEX = "index";
     String TYPE = "type";

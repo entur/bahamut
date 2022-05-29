@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.routes.json;
+package org.entur.bahamut.camel.routes.json;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;

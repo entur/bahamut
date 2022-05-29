@@ -14,14 +14,14 @@
  *
  */
 
-package org.entur.bahamut.routes.mapper;
+package org.entur.bahamut.camel.routes.mapper;
 
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.entur.bahamut.routes.PlaceHierarchy;
-import org.entur.bahamut.routes.json.Parent;
-import org.entur.bahamut.routes.json.PeliasDocument;
+import org.entur.bahamut.camel.routes.json.PeliasDocument;
+import org.entur.bahamut.camel.placeHierarchy.PlaceHierarchy;
+import org.entur.bahamut.camel.routes.json.Parent;
 import org.rutebanken.netex.model.*;
 import org.springframework.util.CollectionUtils;
 

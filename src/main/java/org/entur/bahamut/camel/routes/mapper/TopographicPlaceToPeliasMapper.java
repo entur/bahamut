@@ -14,10 +14,10 @@
  *
  */
 
-package org.entur.bahamut.routes.mapper;
+package org.entur.bahamut.camel.routes.mapper;
 
-import org.entur.bahamut.routes.PlaceHierarchy;
-import org.entur.bahamut.routes.json.PeliasDocument;
+import org.entur.bahamut.camel.placeHierarchy.PlaceHierarchy;
+import org.entur.bahamut.camel.routes.json.PeliasDocument;
 import org.rutebanken.netex.model.MultilingualString;
 import org.rutebanken.netex.model.TopographicPlace;
 import org.springframework.util.CollectionUtils;
