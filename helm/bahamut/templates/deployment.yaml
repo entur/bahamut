@@ -29,7 +29,6 @@ spec:
             - name: JDK_JAVA_OPTIONS
               value: -server -Xmx{{ .Values.resources.xmx }} -Xss512k -XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90
                 -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40 -XX:ActiveProcessorCount={{ .Values.resources.cpuRequest }}
-                -Dspring.config.location=/etc/application-config/application.properties
                 -Dfile.encoding=UTF-8
             - name: TZ
               value: Europe/Oslo
