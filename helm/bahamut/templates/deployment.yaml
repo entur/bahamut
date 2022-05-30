@@ -35,10 +35,6 @@ spec:
               value: Europe/Oslo
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/bahamut-service-account/credentials.json
-          ports:
-            - containerPort: {{ .Values.service.http.internalPort }}
-              name: http
-              protocol: TCP
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness

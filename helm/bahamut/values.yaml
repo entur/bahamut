@@ -11,4 +11,4 @@ resources:
 
 service:
   http:
-    internalPort: 9001
+    internalPort: 8080
