@@ -24,6 +24,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static org.entur.bahamut.camel.PeliasIndexParentInfoEnricher.GEOCODER_ADMIN_UNIT_REPO;
 import static org.entur.bahamut.services.BlobStoreService.FILE_HANDLE;
 
 @Component
@@ -40,7 +41,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
     private int backOffMultiplier;
 
-    @Value("${pelias.update.cron.schedule:0+0+12+1/1+*+?+*}")
+    @Value("${pelias.update.cron.schedule:0+0/10+*+1/1+*+?+*}")
     private String cronSchedule;
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
@@ -49,7 +50,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${blobstore.gcs.bahamut.geocoder.file:tiamat_export_geocoder_latest.zip}")
     private String bahamutGeocoderFile;
 
-    @Value("${bahamut.workdir:/tmp/tiamat/geocoder}")
+    @Value("${bahamut.workdir:/tmp/bahamut/geocoder}")
     private String bahamutWorkDir;
 
     private final StopPlaceBoostConfiguration stopPlaceBoostConfiguration;
@@ -78,6 +79,8 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .logRetryStackTrace(true));
 
         from("quartz://bahamut/peliasUpdate?cron=" + cronSchedule + "&trigger.timeZone=Europe/Oslo")
+                .bean("adminUnitRepositoryBuilder", "build")
+                .setProperty(GEOCODER_ADMIN_UNIT_REPO, simple("body"))
                 .setHeader(FILE_HANDLE, constant(tiamatGeocoderFile))
                 .bean(kakkaBlobStoreService, "getBlob")
                 .setHeader(WORK_DIRECTORY_HEADER, constant(bahamutWorkDir))

@@ -18,13 +18,17 @@
 
 package org.entur.bahamut.repository;
 
+import com.google.cloud.storage.Acl;
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
+import org.entur.bahamut.camel.adminUnitsRepository.BlobStoreFiles;
 import org.rutebanken.helper.gcp.BlobStoreHelper;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Repository;
 
 import java.io.InputStream;
+import java.util.*;
 
 /**
  * Blob store no.entur.antu.repository targeting Google Cloud Storage.
@@ -34,7 +38,7 @@ import java.io.InputStream;
 @Scope("prototype")
 public class GcsBlobStoreRepository implements BlobStoreRepository {
 
-    private final Storage storage;
+    private Storage storage;
 
     private String bucketName;
 
@@ -61,4 +65,36 @@ public class GcsBlobStoreRepository implements BlobStoreRepository {
         BlobStoreHelper.uploadBlobWithRetry(storage, bucketName, name, inputStream, false);
     }
 
+    @Override
+    public void setStorage(Storage storage) {
+        this.storage = storage;
+    }
+
+    @Override
+    public BlobStoreFiles listBlobs(String prefix) {
+        return listBlobs(List.of(prefix));
+    }
+
+    private BlobStoreFiles listBlobs(Collection<String> prefixes) {
+        BlobStoreFiles blobStoreFiles = new BlobStoreFiles();
+
+
+        for (String prefix : prefixes) {
+            Iterator<Blob> blobIterator = BlobStoreHelper.listAllBlobsRecursively(storage, bucketName, prefix);
+            blobIterator.forEachRemaining(blob -> blobStoreFiles.add(toBlobStoreFile(blob, blob.getName())));
+        }
+
+        return blobStoreFiles;
+    }
+
+    private BlobStoreFiles.File toBlobStoreFile(Blob blob, String fileName) {
+        BlobStoreFiles.File file = new BlobStoreFiles.File(fileName, new Date(blob.getCreateTime()), new Date(blob.getUpdateTime()), blob.getSize());
+
+        if (blob.getAcl() != null) {
+            if (blob.getAcl().stream().anyMatch(acl -> Acl.User.ofAllUsers().equals(acl.getEntity()) && acl.getRole() != null)) {
+                file.setUrl(blob.getMediaLink());
+            }
+        }
+        return file;
+    }
 }

@@ -18,6 +18,9 @@
 
 package org.entur.bahamut.repository;
 
+import com.google.cloud.storage.Storage;
+import org.entur.bahamut.camel.adminUnitsRepository.BlobStoreFiles;
+
 import java.io.InputStream;
 
 /**
@@ -26,6 +29,8 @@ import java.io.InputStream;
  * A simple implementation {@link LocalDiskBlobStoreRepository} is available for testing in a local environment.
  */
 public interface BlobStoreRepository {
+
+    BlobStoreFiles listBlobs(String prefix);
 
     boolean existBlob(String objectName);
 
@@ -40,4 +45,5 @@ public interface BlobStoreRepository {
 
     void setBucketName(String bucketName);
 
+    void setStorage(Storage storage);
 }

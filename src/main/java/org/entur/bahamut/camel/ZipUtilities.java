@@ -14,6 +14,10 @@ public final class ZipUtilities {
     public static void unzipFile(Exchange exchange) {
         InputStream inputStream = exchange.getIn().getBody(InputStream.class);
         String targetFolder = exchange.getIn().getHeader("bahamutWorkDir", String.class);
+        unzipFile(inputStream, targetFolder);
+    }
+
+    public static void unzipFile(InputStream inputStream, String targetFolder) {
         try (ZipInputStream zis = new ZipInputStream(inputStream)) {
             byte[] buffer = new byte[1024];
             ZipEntry zipEntry = zis.getNextEntry();
