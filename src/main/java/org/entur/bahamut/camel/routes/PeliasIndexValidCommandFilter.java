@@ -14,32 +14,22 @@
  *
  */
 
-package org.entur.bahamut.camel;
+package org.entur.bahamut.camel.routes;
 
-import org.entur.bahamut.camel.routes.ElasticsearchCommand;
 import org.entur.bahamut.camel.routes.json.PeliasDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-
 @Service
 public class PeliasIndexValidCommandFilter {
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger logger = LoggerFactory.getLogger(PeliasIndexValidCommandFilter.class);
 
     /**
      * Remove invalid indexing commands.
-     * <p>
      * Certain commands will be acceptable for insert into Elasticsearch, but will cause Pelias API to fail upon subsequent queries.
      */
-    public List<ElasticsearchCommand> removeInvalidCommands(Collection<ElasticsearchCommand> commands) {
-        return commands.stream().filter(c -> isValid(c)).collect(Collectors.toList());
-    }
-
-    boolean isValid(ElasticsearchCommand command) {
+    public static boolean isValid(ElasticsearchCommand command) {
         if (command == null || command.getIndex() == null) {
             logger.warn("Removing invalid command");
             return false;
@@ -49,12 +39,10 @@ public class PeliasIndexValidCommandFilter {
             return false;
         }
 
-        if (!(command.getSource() instanceof PeliasDocument)) {
+        if (!(command.getSource() instanceof PeliasDocument doc)) {
             logger.warn("Removing invalid command with missing pelias document:" + command);
             return false;
         }
-
-        PeliasDocument doc = (PeliasDocument) command.getSource();
 
         if (doc.getLayer() == null || doc.getSource() == null || doc.getSourceId() == null) {
             logger.warn("Removing invalid command where pelias document is missing mandatory fields:" + command);
@@ -65,8 +53,6 @@ public class PeliasIndexValidCommandFilter {
             logger.debug("Removing invalid command where geometry is missing:" + command);
             return false;
         }
-
         return true;
     }
-
 }

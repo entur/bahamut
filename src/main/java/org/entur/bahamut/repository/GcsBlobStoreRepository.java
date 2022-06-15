@@ -23,6 +23,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import org.entur.bahamut.camel.adminUnitsRepository.BlobStoreFiles;
 import org.rutebanken.helper.gcp.BlobStoreHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Repository;

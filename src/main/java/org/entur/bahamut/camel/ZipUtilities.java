@@ -9,11 +9,13 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import static org.entur.bahamut.camel.routes.StopPlacesDataRouteBuilder.WORK_DIRECTORY_HEADER;
+
 public final class ZipUtilities {
 
     public static void unzipFile(Exchange exchange) {
         InputStream inputStream = exchange.getIn().getBody(InputStream.class);
-        String targetFolder = exchange.getIn().getHeader("bahamutWorkDir", String.class);
+        String targetFolder = exchange.getIn().getHeader(WORK_DIRECTORY_HEADER, String.class);
         unzipFile(inputStream, targetFolder);
     }
 
@@ -57,7 +59,7 @@ public final class ZipUtilities {
             byte[] inputBytes = inputStream.readAllBytes();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ZipOutputStream zos = new ZipOutputStream(baos);
-            ZipEntry entry = new ZipEntry("tiamat_csv_export_geocoder_latest.csv");
+            ZipEntry entry = new ZipEntry("tiamat_csv_export_geocoder_latest.csv"); // TODO: hardCoded ???
             entry.setSize(inputBytes.length);
             zos.putNextEntry(entry);
             zos.write(inputBytes);
