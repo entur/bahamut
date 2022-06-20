@@ -29,28 +29,23 @@ public class PeliasIndexValidCommandFilter {
      * Remove invalid indexing commands.
      * Certain commands will be acceptable for insert into Elasticsearch, but will cause Pelias API to fail upon subsequent queries.
      */
-    public static boolean isValid(ElasticsearchCommand command) {
-        if (command == null || command.getIndex() == null) {
-            logger.warn("Removing invalid command");
+    public static boolean isValid(PeliasDocument document) {
+        if (document == null) {
+            logger.warn("Removing invalid document with missing pelias document:" + document);
             return false;
         }
-        if (command.getIndex().getIndex() == null || command.getIndex().getType() == null) {
-            logger.warn("Removing invalid command with missing index name or type:" + command);
-            return false;
-        }
-
-        if (!(command.getSource() instanceof PeliasDocument doc)) {
-            logger.warn("Removing invalid command with missing pelias document:" + command);
+        if (document.getLayer() == null) {
+            logger.warn("Removing invalid document with missing layer:" + document);
             return false;
         }
 
-        if (doc.getLayer() == null || doc.getSource() == null || doc.getSourceId() == null) {
-            logger.warn("Removing invalid command where pelias document is missing mandatory fields:" + command);
+        if (document.getSource() == null || document.getSourceId() == null) {
+            logger.warn("Removing invalid document where pelias document is missing mandatory fields:" + document);
             return false;
         }
 
-        if (doc.getCenterPoint() == null) {
-            logger.debug("Removing invalid command where geometry is missing:" + command);
+        if (document.getCenterPoint() == null) {
+            logger.debug("Removing invalid document where geometry is missing:" + document);
             return false;
         }
         return true;

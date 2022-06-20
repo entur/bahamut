@@ -44,7 +44,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
     private int backOffMultiplier;
 
-    @Value("${pelias.update.cron.schedule:0+0/2+*+1/1+*+?+*}")
+    @Value("${pelias.update.cron.schedule:0+0/3+*+1/1+*+?+*}")
     private String cronSchedule;
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
@@ -97,7 +97,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .process(ZipUtilities::unzipFile)
                 .process(StopPlacesDataRouteBuilder::parseNetexFile)
                 .process(this::buildAdminUnitCache)
-                .process(this::netexEntitiesIndexToElasticsearchCommands)
+                .process(this::netexEntitiesIndexToPeliasDocument)
                 .bean(new PeliasIndexParentInfoEnricher())
                 .bean(new CSVCreator())
                 .process(ZipUtilities::zipFile)
@@ -128,26 +128,24 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
         }
     }
 
-    private void netexEntitiesIndexToElasticsearchCommands(Exchange exchange) {
+    private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
 
         NetexEntitiesIndex netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
 
         StopPlaceToPeliasMapper stopPlaceToPeliasMapper = new StopPlaceToPeliasMapper(stopPlaceBoostConfiguration);
         TopographicPlaceToPeliasMapper topographicPlaceToPeliasMapper = new TopographicPlaceToPeliasMapper(1L, Collections.emptyList());
 
-        List<ElasticsearchCommand> stopPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
+        List<PeliasDocument> stopPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
                 .flatMap(stopPlaces -> PlaceHierarchies.create(stopPlaces).stream())
                 .flatMap(placeHierarchies -> stopPlaceToPeliasMapper.toPeliasDocuments(placeHierarchies).stream())
                 .sorted(new PeliasDocumentPopularityComparator())
-                .map(ElasticsearchCommand::peliasIndexCommand)
                 .toList();
 
-        List<ElasticsearchCommand> topographicalPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
+        List<PeliasDocument> topographicalPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
                 .flatMap(siteFrame -> siteFrame.getTopographicPlaces().getTopographicPlace().stream())
                 .flatMap(topographicPlace -> topographicPlaceToPeliasMapper.toPeliasDocuments(new PlaceHierarchy<>(topographicPlace)).stream())
                 .sorted(new PeliasDocumentPopularityComparator())
-                .map(ElasticsearchCommand::peliasIndexCommand)
                 .toList();
 
         exchange.getIn().setBody(

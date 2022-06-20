@@ -1,5 +1,6 @@
 package org.entur.bahamut.camel.csv;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ public record CSVValue(Object value, boolean json) {
         } else if (json) {
             try {
                 ObjectMapper mapper = new ObjectMapper();
+                mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
                 StringWriter writer = new StringWriter();
                 mapper.writeValue(writer, value);
                 return writer.toString();

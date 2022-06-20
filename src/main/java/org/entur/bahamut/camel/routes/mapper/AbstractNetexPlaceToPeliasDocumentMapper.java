@@ -124,8 +124,8 @@ public abstract class AbstractNetexPlaceToPeliasDocumentMapper<T extends Place_V
     }
 
     /**
-     * The Pelias APIs deduper will throw away results with identical name, layer, parent and address. Setting unique ID in street part of address to avoid unique
-     * topographic places with identical names being deduped.
+     * The Pelias APIs deduper will throw away results with identical name, layer, parent and address.
+     * Setting unique ID in street part of address to avoid unique topographic places with identical names being deduped.
      */
     private void addIdToStreetNameToAvoidFalseDuplicates(T place, PeliasDocument document) {
         if (document.getAddressParts() == null) {

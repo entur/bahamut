@@ -21,7 +21,7 @@
             <include resource="org/springframework/boot/logging/logback/base.xml"/>
         </then>
         <else>
-            <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+            <appender fieldName="console" class="ch.qos.logback.core.ConsoleAppender">
                 <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
                     <providers>
                         <pattern>
@@ -45,9 +45,9 @@
                     </providers>
                 </encoder>
             </appender>
-            <logger name="com" level="INFO"/>
-            <logger name="no" level="INFO"/>
-            <logger name="org" level="INFO"/>
+            <logger fieldName="com" level="INFO"/>
+            <logger fieldName="no" level="INFO"/>
+            <logger fieldName="org" level="INFO"/>
             <root level="INFO">
                 <appender-ref ref="console"/>
             </root>

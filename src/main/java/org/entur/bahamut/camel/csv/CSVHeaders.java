@@ -17,4 +17,5 @@ public interface CSVHeaders {
     String SOURCE = "source";
     String SOURCE_ID = "source_id";
     String LAYER = "layer";
+    String PARENT = "parent_json";
 }
