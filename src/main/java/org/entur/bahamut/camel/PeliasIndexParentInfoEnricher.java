@@ -20,7 +20,6 @@ import org.apache.camel.Body;
 import org.apache.camel.ExchangeProperty;
 import org.entur.bahamut.camel.adminUnitsRepository.AdminUnit;
 import org.entur.bahamut.camel.adminUnitsRepository.AdminUnitsCache;
-import org.entur.bahamut.camel.routes.ElasticsearchCommand;
 import org.entur.bahamut.camel.routes.json.GeoPoint;
 import org.entur.bahamut.camel.routes.json.Parent;
 import org.entur.bahamut.camel.routes.json.PeliasDocument;
@@ -31,7 +30,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 @Service
 public class PeliasIndexParentInfoEnricher {
@@ -42,116 +44,133 @@ public class PeliasIndexParentInfoEnricher {
     private final GeometryFactory geometryFactory = new GeometryFactory();
 
     /**
-     * Enrich indexing commands with parent info if missing.
+     * Enrich indexing peliasDocuments with parent info if missing.
      */
-    public void addMissingParentInfo(@Body Collection<ElasticsearchCommand> commands,
-                                     @ExchangeProperty(value = ADMIN_UNITS_CACHE_PROPERTY) AdminUnitsCache adminUnitRepository) {
-        logger.debug("Start updating missing parent info for {} commands", commands.size());
-        var ref = new Object() {
-            long commandIdx = 1;
-        };
-        commands.forEach(c -> {
-            long startTime = System.nanoTime();
-            addMissingParentInfo(c, adminUnitRepository);
-            long endTime = System.nanoTime();
-            long duration = (endTime - startTime) / 1000000;
-            logger.debug("Updated {} / {} command in {} milliseconds", ref.commandIdx, commands.size(), duration);
-            ref.commandIdx++;
+    public void addMissingParentInfo(@Body List<PeliasDocument> peliasDocuments,
+                                     @ExchangeProperty(value = ADMIN_UNITS_CACHE_PROPERTY) AdminUnitsCache adminUnitCache) {
+        logger.debug("Start updating missing parent info for {} peliasDocuments", peliasDocuments.size());
+
+        AtomicInteger index = new AtomicInteger(0);
+        peliasDocuments
+                .forEach(peliasDocument -> logExecutionTimeFor(
+                                this::addMissingParentInfo,
+                                "Updated" + index.incrementAndGet() + " / " + peliasDocuments.size() + " command"
+                        ).accept(adminUnitCache, peliasDocument)
+                );
+    }
+
+    private void addMissingParentInfo(AdminUnitsCache adminUnitsCache, PeliasDocument peliasDocument) {
+        Parent parent = peliasDocument.getParent();
+
+        if (parent == null || parent.idFor(Parent.FieldName.LOCALITY).isEmpty()) {
+            logExecutionTimeFor(
+                    this::addParentInfoByReverseGeoLookup,
+                    "Locality is missing doing reverseGeoLookup for :" + peliasDocument.getCategory() + " type: " + peliasDocument.getLayer()
+            ).accept(adminUnitsCache, peliasDocument);
+        }
+
+        // if we were able to add the localityId in the previous step, or it was already there.
+        if (parent != null) {
+            parent.idFor(Parent.FieldName.LOCALITY).ifPresent(localityId ->
+                    logExecutionTimeFor(
+                            this::addParentInfoByIds,
+                            "LocalityId exists, adding parent info"
+                    ).accept(adminUnitsCache, peliasDocument)
+            );
+        }
+    }
+
+    private void addParentInfoByIds(AdminUnitsCache adminUnitsCache, PeliasDocument peliasDocument) {
+        Parent parent = peliasDocument.getParent();
+
+        parent.idFor(Parent.FieldName.LOCALITY).ifPresent(localityId -> {
+            if (parent.nameFor(Parent.FieldName.LOCALITY).isEmpty()) {
+                AdminUnit adminUnitLocality = logExecutionTimeFor(
+                        () -> adminUnitsCache.getLocalityForId(localityId),
+                        "1. Locality is missing get locality name by id: " + localityId + " type: " + peliasDocument.getLayer()
+                ).get();
+                if (adminUnitLocality != null) {
+                    parent.setNameFor(Parent.FieldName.LOCALITY, adminUnitLocality.name());
+                    parent.addOrReplaceParentField(Parent.FieldName.COUNTY, new Parent.Field(adminUnitLocality.parentId()));
+                    parent.addOrReplaceParentField(Parent.FieldName.COUNTRY, new Parent.Field(adminUnitLocality.countryRef()));
+                } else {
+                    // Locality id on document does not match any known locality, match on geography instead
+                    logExecutionTimeFor(
+                            this::addParentInfoByReverseGeoLookup,
+                            "Locality is missing doing reverseGeoLookup for :" + peliasDocument.getCategory() + " type: " + peliasDocument.getLayer()
+                    ).accept(adminUnitsCache, peliasDocument);
+
+                    logExecutionTimeFor(
+                            this::addParentInfoByReverseGeoLookup,
+                            "2. Locality is still missing ,doing Reverse lookup again:  " + localityId
+                    ).accept(adminUnitsCache, peliasDocument);
+
+                    String adminUnitName = logExecutionTimeFor(
+                            () -> adminUnitsCache.getAdminUnitNameForId(localityId),
+                            "3. Once again setLocality by Id : " + localityId
+                    ).get();
+
+                    parent.setNameFor(Parent.FieldName.LOCALITY, adminUnitName);
+                }
+            }
+        });
+
+
+        parent.idFor(Parent.FieldName.COUNTY).ifPresent(countyId -> {
+            if (parent.nameFor(Parent.FieldName.COUNTY).isEmpty()) {
+                String adminUnitName = logExecutionTimeFor(
+                        () -> adminUnitsCache.getAdminUnitNameForId(countyId),
+                        "County is missing get county name by id: " + countyId + " type: " + peliasDocument.getLayer()
+                ).get();
+                parent.setNameFor(Parent.FieldName.COUNTY, adminUnitName);
+            }
         });
     }
 
-    @LogExecutionTime
-    void addMissingParentInfo(ElasticsearchCommand command, AdminUnitsCache adminUnitRepository) {
-
-        if (!(command.getSource() instanceof PeliasDocument peliasDocument)) {
-            return;
-        }
-        if (isLocalityMissing(peliasDocument.getParent())) {
-            long startTime = System.nanoTime();
-            addParentIdsByReverseGeoLookup(adminUnitRepository, peliasDocument);
-            long endTime = System.nanoTime();
-            long duration = (endTime - startTime) / 1000000;
-            logger.debug("Locality is missing doing reverseGeoLookup for :" + peliasDocument.getCategory() + " type: " + peliasDocument.getLayer() + "duration(ms): " + duration);
-        }
-
-        long startTime = System.nanoTime();
-        addAdminUnitNamesByIds(adminUnitRepository, peliasDocument);
-        long endTime = System.nanoTime();
-        long duration = (endTime - startTime) / 1000000;
-        logger.debug("addAdminUnitNamesByIds duration(ms): " + duration);
-    }
-
-    private void addAdminUnitNamesByIds(AdminUnitsCache adminUnitRepository, PeliasDocument peliasDocument) {
-        Parent parent = peliasDocument.getParent();
-        if (parent != null) {
-
-            logger.debug("Update parentInfo by Ids");
-
-            if (parent.getLocalityId() != null && parent.getLocality() == null) {
-                long startTime = System.nanoTime();
-                AdminUnit locality = adminUnitRepository.getLocalityForId(parent.getLocalityId());
-                long endTime = System.nanoTime();
-                long duration = (endTime - startTime) / 1000000;
-                logger.debug("1. Locality is missing get locality name by id: " + parent.getLocalityId() + " type: " + peliasDocument.getLayer() + " duration(ms): " + duration);
-                if (locality != null) {
-                    parent.setLocality(locality.name());
-                    parent.setCountyId(locality.parentId());
-                    parent.setCountryId(locality.countryRef());
-                } else {
-                    // Locality id on document does not match any known locality, match on geography instead
-                    long startTime1 = System.nanoTime();
-                    addParentIdsByReverseGeoLookup(adminUnitRepository, peliasDocument);
-                    long endTime1 = System.nanoTime();
-                    long duration1 = (endTime1 - startTime1) / 1000000;
-                    logger.debug("2. Locality is still missing ,doing Reverse lookup again:  " + parent.getLocalityId() + " duration: " + duration1);
-                    final String adminUnitName = adminUnitRepository.getAdminUnitNameForId(parent.getLocalityId());
-                    long duration2 = (endTime1 - startTime1) / 1000000;
-                    logger.debug("3. Once again setLocality by Id : " + parent.getLocalityId() + " duration: " + duration2);
-                    parent.setLocality(adminUnitName);
-                }
-            }
-            if (parent.getCountyId() != null && parent.getCounty() == null) {
-                long startTime = System.nanoTime();
-                final String adminUnitName = adminUnitRepository.getAdminUnitNameForId(parent.getCountyId());
-                long endTime = System.nanoTime();
-                long duration = (endTime - startTime) / 1000000;
-                logger.debug("County is missing get county name by id: " + parent.getLocalityId() + " type: " + peliasDocument.getLayer() + " duration(ms): " + duration);
-                parent.setCounty(adminUnitName);
-            }
-        }
-    }
-
-    private void addParentIdsByReverseGeoLookup(AdminUnitsCache adminUnitRepository, PeliasDocument peliasDocument) {
-        Parent parent = peliasDocument.getParent();
-
+    private void addParentInfoByReverseGeoLookup(AdminUnitsCache adminUnitRepository, PeliasDocument peliasDocument) {
         GeoPoint centerPoint = peliasDocument.getCenterPoint();
         if (centerPoint != null) {
-            Point point = geometryFactory.createPoint(new Coordinate(centerPoint.getLon(), centerPoint.getLat()));
+            Point point = geometryFactory.createPoint(new Coordinate(centerPoint.lon(), centerPoint.lat()));
 
-            AdminUnit locality = adminUnitRepository.getLocalityForPoint(point);
-            if (locality != null) {
+            AdminUnit adminUnitLocality = adminUnitRepository.getLocalityForPoint(point);
+            AdminUnit adminUnitCountry = adminUnitRepository.getCountryForPoint(point); // TODO: No need to run it, if its not needed
+            Parent parent = peliasDocument.getParent();
+            if (adminUnitLocality != null) {
                 if (parent == null) {
                     parent = new Parent();
                     peliasDocument.setParent(parent);
                 }
-                parent.setLocalityId(locality.id());
-                parent.setCountyId(locality.parentId());
-                parent.setCountryId(locality.countryRef());
-            } else {
-                AdminUnit country = adminUnitRepository.getCountryForPoint(point);
-                if (country != null) {
-                    if (parent == null) {
-                        parent = new Parent();
-                        peliasDocument.setParent(parent);
-                    }
-                    parent.setCountryId(country.countryRef());
+                parent.addOrReplaceParentField(Parent.FieldName.LOCALITY, new Parent.Field(adminUnitLocality.id()));
+                parent.addOrReplaceParentField(Parent.FieldName.COUNTY, new Parent.Field(adminUnitLocality.parentId()));
+                parent.addOrReplaceParentField(Parent.FieldName.COUNTRY, new Parent.Field(adminUnitLocality.countryRef()));
+            } else if (adminUnitCountry != null) {
+                if (parent == null) {
+                    parent = new Parent();
+                    peliasDocument.setParent(parent);
                 }
+                parent.addOrReplaceParentField(Parent.FieldName.COUNTRY, new Parent.Field(adminUnitCountry.countryRef()));
             }
         }
     }
 
-    private boolean isLocalityMissing(Parent parent) {
-        return parent == null || parent.getLocalityId() == null;
+    private BiConsumer<AdminUnitsCache, PeliasDocument> logExecutionTimeFor(BiConsumer<AdminUnitsCache, PeliasDocument> consumer, String logStatement) {
+        return (adminUnitsCache, peliasDocument) -> {
+            long startTime = System.nanoTime();
+            consumer.accept(adminUnitsCache, peliasDocument);
+            long endTime = System.nanoTime();
+            long duration = (endTime - startTime) / 1000000;
+            logger.debug(logStatement + " duration(ms): " + duration);
+        };
     }
 
+    private <T> Supplier<T> logExecutionTimeFor(Supplier<T> supplier, String logStatement) {
+        return () -> {
+            long startTime = System.nanoTime();
+            T value = supplier.get();
+            long endTime = System.nanoTime();
+            long duration = (endTime - startTime) / 1000000;
+            logger.debug(logStatement + " duration(ms): " + duration);
+            return value;
+        };
+    }
 }

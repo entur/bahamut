@@ -17,8 +17,6 @@
 package org.entur.bahamut.camel.routes.json;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.geojson.Polygon;
 
@@ -31,13 +29,10 @@ import java.util.stream.Collectors;
 
 public class PeliasDocument {
 
-    public static final String DEFAULT_SOURCE = "whosonfirst";
-    public static final Long DEFAULT_POPULARITY = 1L;
-
-    // Valid sources for querying: "osm,oa,gn,wof,openstreetmap,openaddresses,geonames,whosonfirst"
-    private String source = DEFAULT_SOURCE;
+    private String source;
     private String layer;
     private String sourceId;
+
     private Map<String, String> nameMap;
     private Map<String, String> phraseMap;
     private Map<String, String> descriptionMap;
@@ -57,6 +52,10 @@ public class PeliasDocument {
     public PeliasDocument(String layer, String sourceId) {
         this.layer = layer;
         this.sourceId = sourceId;
+    }
+
+    public String getIndex() {
+        return "pelias";
     }
 
     public String getSource() {

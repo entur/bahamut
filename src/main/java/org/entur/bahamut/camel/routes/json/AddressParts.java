@@ -16,24 +16,11 @@
 
 package org.entur.bahamut.camel.routes.json;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonRootName;
-
-@JsonRootName("address_parts")
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AddressParts {
 
-    @JsonProperty("street")
     private String street;
-
-    @JsonProperty("number")
     private String number;
-
-    @JsonProperty("zip")
     private String zip;
-
-    @JsonProperty("name")
     private String name;
 
     public String getStreet() {

@@ -16,242 +16,54 @@
 
 package org.entur.bahamut.camel.routes.json;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonRootName;
-import org.springframework.util.CollectionUtils;
+import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
-@JsonRootName("parent")
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Parent {
 
-    @JsonProperty("country")
-    private List<String> countryList;
-    @JsonProperty("county")
-    private List<String> countyList;
-    @JsonProperty("postalCode")
-    private List<String> postalCodeList;
-    @JsonProperty("localadmin")
-    private List<String> localadminList;
-    @JsonProperty("locality")
-    private List<String> localityList;
-    @JsonProperty("borough")
-    private List<String> boroughList;
+    private final Map<FieldName, Field> fields = new HashMap<>();
 
-    @JsonProperty("country_a")
-    private List<String> countryIdList;
-    @JsonProperty("county_id")
-    private List<String> countyIdList;
-    @JsonProperty("postalCode_id")
-    private List<String> postalCodeIdList;
-    @JsonProperty("localadmin_id")
-    private List<String> localadminIdList;
-    @JsonProperty("locality_id")
-    private List<String> localityIdList;
-    @JsonProperty("borough_id")
-    private List<String> boroughIdList;
-
-    public Parent() {
+    public void addOrReplaceParentField(FieldName fieldName, Field field) {
+        fields.compute(fieldName, (fldName, fld) -> field);
     }
 
-    public static Builder builder() {
-        return new Builder();
+    public void setNameFor(FieldName fieldName, String name) {
+        fields.computeIfPresent(fieldName, (fldName, field) -> new Field(field.id(), name, field.abbreviation(), field.source()));
     }
 
-    @JsonIgnore
-    public String getCountry() {
-        return getFirst(countryList);
+    public Optional<String> idFor(Parent.FieldName fieldName) {
+        return Optional.ofNullable(fields.get(fieldName)).map(Parent.Field::id);
     }
 
-    public void setCountry(String country) {
-        this.countryList = asList(country);
+    public Optional<String> nameFor(Parent.FieldName fieldName) {
+        return Optional.ofNullable(fields.get(fieldName)).map(Parent.Field::name);
     }
 
-    @JsonIgnore
-    public String getCounty() {
-        return getFirst(countyList);
+    public Map<FieldName, Field> getParentFields() {
+        return fields;
     }
 
-    public void setCounty(String county) {
-        this.countyList = asList(county);
-    }
-
-    @JsonIgnore
-    public String getPostalCode() {
-        return getFirst(postalCodeList);
-    }
-
-    public void setPostalCode(String postalCode) {
-        this.postalCodeList = asList(postalCode);
-    }
-
-    @JsonIgnore
-    public String getLocaladmin() {
-        return getFirst(localadminList);
-    }
-
-    public void setLocaladmin(String localadmin) {
-        this.localadminList = asList(localadmin);
-    }
-
-    @JsonIgnore
-    public String getLocality() {
-        return getFirst(localityList);
-    }
-
-    public void setLocality(String locality) {
-        this.localityList = asList(locality);
-    }
-
-    @JsonIgnore
-    public String getCountryId() {
-        return getFirst(countryIdList);
-    }
-
-    public void setCountryId(String countryId) {
-        this.countryIdList = asList(countryId);
-    }
-
-    @JsonIgnore
-    public String getCountyId() {
-        return getFirst(countyIdList);
-    }
-
-    public void setCountyId(String countyId) {
-        this.countyIdList = asList(countyId);
-    }
-
-    @JsonIgnore
-    public String getPostalCodeId() {
-        return getFirst(postalCodeIdList);
-    }
-
-    public void setPostalCodeId(String postalCodeId) {
-        this.postalCodeIdList = asList(postalCodeId);
-    }
-
-    @JsonIgnore
-    public String getLocaladminId() {
-        return getFirst(localadminIdList);
-    }
-
-    public void setLocaladminId(String localadminId) {
-        this.localadminIdList = asList(localadminId);
-    }
-
-    @JsonIgnore
-    public String getLocalityId() {
-        return getFirst(localityIdList);
-    }
-
-    public void setLocalityId(String localityId) {
-        this.localityIdList = asList(localityId);
-    }
-
-    @JsonIgnore
-    public String getBorough() {
-        return getFirst(boroughList);
-    }
-
-    public void setBorough(String borough) {
-        this.boroughList = asList(borough);
-    }
-
-    @JsonIgnore
-    public String getBoroughId() {
-        return getFirst(boroughIdList);
-    }
-
-    public void setBoroughId(String boroughId) {
-        this.boroughIdList = asList(boroughId);
-    }
-
-    private <T> List<T> asList(T obj) {
-        return obj == null ? null : Arrays.asList(obj);
-    }
-
-    private <T> T getFirst(List<T> list) {
-        return CollectionUtils.isEmpty(list) ? null : list.get(0);
-    }
-
-    public static class Builder {
-
-        protected Parent parent = new Parent();
-
-        private Builder() {
-        }
-
-
-        public Builder withCountry(String country) {
-            parent.setCounty(country);
-            return this;
-        }
-
-        public Builder withPostalCode(String postalCode) {
-
-            parent.setPostalCode(postalCode);
-            return this;
-        }
-
-        public Builder withLocaladmin(String localadmin) {
-            parent.setLocaladmin(localadmin);
-            return this;
-        }
-
-        public Builder withLocality(String locality) {
-            parent.setLocality(locality);
-            return this;
-        }
-
-        public Builder withCounty(String county) {
-            parent.setCounty(county);
-            return this;
-        }
-
-
-        public Builder withBorough(String borough) {
-            parent.setBorough(borough);
-            return this;
-        }
-
-        public Builder withCountryId(String countryId) {
-            parent.setCountryId(countryId);
-            return this;
-        }
-
-        public Builder withPostalCodeId(String postalCodeId) {
-            parent.setPostalCodeId(postalCodeId);
-            return this;
-        }
-
-        public Builder withLocaladminId(String localadminId) {
-            parent.setLocaladminId(localadminId);
-            return this;
-        }
-
-        public Builder withLocalityId(String localityId) {
-            parent.setLocalityId(localityId);
-            return this;
-        }
-
-        public Builder withCountyId(String countyId) {
-            parent.setCountyId(countyId);
-            return this;
-        }
-
-        public Builder withBoroughId(String boroughId) {
-            parent.setBoroughId(boroughId);
-            return this;
-        }
-
-        public Parent build() {
-            return parent;
+    public record Field(String id, String name, String abbreviation, String source) {
+        public Field(String id) {
+            this(id, null, null, null);
         }
     }
 
+    public enum FieldName {
+        COUNTRY("country"),
+        COUNTY("county"),
+        LOCALITY("locality");
 
+        private final String value;
+
+        FieldName(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String value() {
+            return value;
+        }
+    }
 }

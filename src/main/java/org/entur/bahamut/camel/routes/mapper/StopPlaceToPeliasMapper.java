@@ -120,7 +120,7 @@ public class StopPlaceToPeliasMapper extends AbstractNetexPlaceToPeliasDocumentM
 
 
             // A bug in elasticsearch 2.3.4 used for pelias causes prefix queries for array values to fail, thus making it impossible to query by tariff zone prefixes. Instead adding
-            // tariff zone authorities as a distinct indexed value.
+            // tariff zone authorities as a distinct indexed name.
             document.setTariffZoneAuthorities(place.getTariffZones().getTariffZoneRef().stream()
                     .map(zoneRef -> zoneRef.getRef().split(":")[0]).distinct()
                     .collect(Collectors.toList()));
@@ -133,7 +133,8 @@ public class StopPlaceToPeliasMapper extends AbstractNetexPlaceToPeliasDocumentM
                 parent = new Parent();
                 document.setParent(parent);
             }
-            parent.setLocalityId(place.getTopographicPlaceRef().getRef());
+            // TODO: Why only locality, why not county and country ???
+            parent.addOrReplaceParentField(Parent.FieldName.LOCALITY, new Parent.Field(place.getTopographicPlaceRef().getRef()));
         }
     }
 
@@ -166,7 +167,8 @@ public class StopPlaceToPeliasMapper extends AbstractNetexPlaceToPeliasDocumentM
         } else if (!CollectionUtils.isEmpty(hierarchy.getChildren())) {
             return SOURCE_PARENT_STOP_PLACE;
         }
-        return PeliasDocument.DEFAULT_SOURCE;
+        // TODO: Should be fixed
+        return "nsr";
     }
 
     @Override
