@@ -21,7 +21,7 @@
             <include resource="org/springframework/boot/logging/logback/base.xml"/>
         </then>
         <else>
-            <appender fieldName="console" class="ch.qos.logback.core.ConsoleAppender">
+            <appender name="console" fieldName="console" class="ch.qos.logback.core.ConsoleAppender">
                 <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
                     <providers>
                         <pattern>
