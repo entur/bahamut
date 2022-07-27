@@ -4,10 +4,10 @@ image:
 
 resources:
   cpuLimit: "2"
-  memLimit: 2700Mi
   cpuRequest: "1"
+  memLimit: 5700Mi
   memRequest: 2500Mi
-  xmx: 2000m
+  xmx: 5000m
 
 service:
   http:

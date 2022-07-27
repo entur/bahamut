@@ -18,8 +18,10 @@
 
 package org.entur.bahamut.repository;
 
+import com.google.cloud.storage.Storage;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.entur.bahamut.camel.adminUnitsRepository.BlobStoreFiles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
@@ -29,9 +31,8 @@ import org.springframework.stereotype.Repository;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Simple memory-based blob store no.entur.antu.repository for testing purpose.
@@ -99,4 +100,24 @@ public class InMemoryBlobStoreRepository implements BlobStoreRepository {
         this.containerName = bucketName;
     }
 
+    @Override
+    public void setStorage(Storage storage) {
+        // TODO: Not good
+    }
+
+    @Override
+    public BlobStoreFiles listBlobs(String prefix) {
+        return listBlobs(Arrays.asList(prefix));
+    }
+
+    private BlobStoreFiles listBlobs(Collection<String> prefixes) {
+        // TODO: logger.debug("list blobs called in in-memory blob store");
+        List<BlobStoreFiles.File> files = blobsInContainers.keySet().stream()
+                .filter(k -> prefixes.stream().anyMatch(prefix -> k.startsWith(prefix)))
+                .map(k -> new BlobStoreFiles.File(k, new Date(), new Date(), 1234L))    //TODO Add real details?
+                .collect(Collectors.toList());
+        BlobStoreFiles blobStoreFiles = new BlobStoreFiles();
+        blobStoreFiles.add(files);
+        return blobStoreFiles;
+    }
 }

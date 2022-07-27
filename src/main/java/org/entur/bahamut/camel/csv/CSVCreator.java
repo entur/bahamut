@@ -1,7 +1,6 @@
 package org.entur.bahamut.camel.csv;
 
 import com.opencsv.CSVWriter;
-import org.entur.bahamut.camel.routes.ElasticsearchCommand;
 import org.entur.bahamut.camel.routes.json.PeliasDocument;
 
 import java.io.*;
@@ -19,7 +18,7 @@ public final class CSVCreator {
         return new CSVValue(value, true);
     }
 
-    public InputStream create(List<ElasticsearchCommand> commands) {
+    public InputStream create(List<PeliasDocument> peliasDocuments) {
 
         Set<String> headers = new java.util.HashSet<>();
         headers.add(ID);
@@ -38,55 +37,55 @@ public final class CSVCreator {
         headers.add(SOURCE);
         headers.add(SOURCE_ID);
         headers.add(LAYER);
+        headers.add(PARENT);
 
-        List<Map<String, CSVValue>> csvCommands = commands.stream().map(command -> {
+        List<Map<String, CSVValue>> csvDocuments = peliasDocuments.stream().map(document -> {
             Map<String, CSVValue> map = new HashMap<>();
-            map.put(ID, CSVValue(command.getIndex().getId()));
-            map.put(INDEX, CSVValue(command.getIndex().getIndex()));
-            map.put(TYPE, CSVValue(command.getIndex().getType()));
+            map.put(ID, CSVValue(document.getSourceId()));
+            map.put(INDEX, CSVValue(document.getIndex()));
+            map.put(TYPE, CSVValue(document.getLayer()));
 
-            if (command.getSource() instanceof PeliasDocument peliasDocument) {
-                map.put(NAME, CSVValue(peliasDocument.getDefaultName()));
-                peliasDocument.getNameMap().entrySet().stream()
+            map.put(NAME, CSVValue(document.getDefaultName()));
+            document.getNameMap().entrySet().stream()
+                    .filter(entry -> !entry.getKey().equals("default"))
+                    .forEach(entry -> {
+                        String header = NAME + "_" + entry.getKey();
+                        headers.add(header);
+                        map.put(header, CSVValue(entry.getValue()));
+                    });
+            if (document.getDefaultAlias() != null) {
+                map.put(ALIAS, CSVJsonValue(List.of(document.getDefaultAlias())));
+            }
+            if (document.getAliasMap() != null) {
+                document.getAliasMap().entrySet().stream()
                         .filter(entry -> !entry.getKey().equals("default"))
                         .forEach(entry -> {
-                            String header = NAME + "_" + entry.getKey();
+                            String header = ALIAS + "_" + entry.getKey();
                             headers.add(header);
-                            map.put(header, CSVValue(entry.getValue()));
+                            map.put(header, CSVJsonValue(List.of(entry.getValue())));
                         });
-                if (peliasDocument.getDefaultAlias() != null) {
-                    map.put(ALIAS, CSVJsonValue(List.of(peliasDocument.getDefaultAlias())));
-                }
-                if (peliasDocument.getAliasMap() != null) {
-                    peliasDocument.getAliasMap().entrySet().stream()
-                            .filter(entry -> !entry.getKey().equals("default"))
-                            .forEach(entry -> {
-                                String header = ALIAS + "_" + entry.getKey();
-                                headers.add(header);
-                                map.put(header, CSVJsonValue(List.of(entry.getValue())));
-                            });
-                }
-                if (peliasDocument.getCenterPoint() != null) {
-                    map.put(LATITUDE, CSVValue(peliasDocument.getCenterPoint().getLat()));
-                    map.put(LONGITUDE, CSVValue(peliasDocument.getCenterPoint().getLon()));
-                }
-                if (peliasDocument.getAddressParts() != null) {
-                    map.put(ADDRESS_STREET, CSVValue(peliasDocument.getAddressParts().getStreet()));
-                    map.put(ADDRESS_NUMBER, CSVValue(peliasDocument.getAddressParts().getNumber()));
-                    map.put(ADDRESS_ZIP, CSVValue(peliasDocument.getAddressParts().getZip()));
-                }
-                map.put(POPULARITY, CSVValue(peliasDocument.getPopularity()));
-                map.put(CATEGORY, CSVJsonValue(peliasDocument.getCategory()));
-                map.put(DESCRIPTION, CSVJsonValue(peliasDocument.getDescriptionMap()));
-                map.put(SOURCE, CSVValue(peliasDocument.getSource()));
-                map.put(SOURCE_ID, CSVValue(peliasDocument.getSourceId()));
-                map.put(LAYER, CSVValue(peliasDocument.getLayer()));
             }
+            if (document.getCenterPoint() != null) {
+                map.put(LATITUDE, CSVValue(document.getCenterPoint().lat()));
+                map.put(LONGITUDE, CSVValue(document.getCenterPoint().lon()));
+            }
+            if (document.getAddressParts() != null) {
+                map.put(ADDRESS_STREET, CSVValue(document.getAddressParts().getStreet()));
+                map.put(ADDRESS_NUMBER, CSVValue(document.getAddressParts().getNumber()));
+                map.put(ADDRESS_ZIP, CSVValue(document.getAddressParts().getZip()));
+            }
+            map.put(POPULARITY, CSVValue(document.getPopularity()));
+            map.put(CATEGORY, CSVJsonValue(document.getCategory()));
+            map.put(DESCRIPTION, CSVJsonValue(document.getDescriptionMap()));
+            map.put(SOURCE, CSVValue(document.getSource()));
+            map.put(SOURCE_ID, CSVValue(document.getSourceId()));
+            map.put(LAYER, CSVValue(document.getLayer()));
+            map.put(PARENT, CSVJsonValue(document.getParent().getParentFields()));
             return map;
         }).toList();
 
-        List<String[]> stringArrays = csvCommands.stream().map(csvCommand -> headers.stream()
-                        .map(header -> csvCommand.computeIfAbsent(header, h -> CSVValue("")))
+        List<String[]> stringArrays = csvDocuments.stream().map(csvDocument -> headers.stream()
+                        .map(header -> csvDocument.computeIfAbsent(header, h -> CSVValue("")))
                         .map(CSVValue::toString)
                         .toArray(String[]::new))
                 .toList();

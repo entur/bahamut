@@ -1,8 +1,11 @@
 package org.entur.bahamut.camel.routes;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.Message;
 import org.apache.camel.builder.RouteBuilder;
+import org.entur.bahamut.camel.PeliasIndexParentInfoEnricher;
 import org.entur.bahamut.camel.ZipUtilities;
+import org.entur.bahamut.camel.adminUnitsRepository.AdminUnitsCache;
 import org.entur.bahamut.camel.csv.CSVCreator;
 import org.entur.bahamut.camel.placeHierarchy.PlaceHierarchies;
 import org.entur.bahamut.camel.placeHierarchy.PlaceHierarchy;
@@ -24,12 +27,14 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static org.entur.bahamut.services.BlobStoreService.FILE_HANDLE;
+import static org.entur.bahamut.camel.PeliasIndexParentInfoEnricher.ADMIN_UNITS_CACHE_PROPERTY;
+import static org.entur.bahamut.services.BlobStoreService.BLOB_STORE_FILE_HANDLE;
 
 @Component
 public class StopPlacesDataRouteBuilder extends RouteBuilder {
 
-    private static final String WORK_DIRECTORY_HEADER = "bahamutWorkDir";
+    public static final String WORK_DIRECTORY_HEADER = "bahamutWorkDir";
+    public static final String OUTPUT_FILENAME_HEADER = "bahamutOutputFilename";
 
     @Value("${bahamut.camel.redelivery.max:3}")
     private int maxRedelivery;
@@ -40,7 +45,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
     private int backOffMultiplier;
 
-    @Value("${pelias.update.cron.schedule:0+0+12+1/1+*+?+*}")
+    @Value("${pelias.update.cron.schedule:0+0/3+*+1/1+*+?+*}")
     private String cronSchedule;
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
@@ -49,8 +54,11 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${blobstore.gcs.bahamut.geocoder.file:tiamat_export_geocoder_latest.zip}")
     private String bahamutGeocoderFile;
 
-    @Value("${bahamut.workdir:/tmp/tiamat/geocoder}")
+    @Value("${bahamut.workdir:/tmp/bahamut/geocoder}")
     private String bahamutWorkDir;
+
+    @Value("${admin.units.cache.max.size:30000}")
+    private Integer cacheMaxSize;
 
     private final StopPlaceBoostConfiguration stopPlaceBoostConfiguration;
     private final KakkaBlobStoreService kakkaBlobStoreService;
@@ -77,17 +85,31 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .logExhausted(true)
                 .logRetryStackTrace(true));
 
-        from("quartz://bahamut/peliasUpdate?cron=" + cronSchedule + "&trigger.timeZone=Europe/Oslo")
-                .setHeader(FILE_HANDLE, constant(tiamatGeocoderFile))
+        from("quartz://bahamut/makeCSV?cron=" + cronSchedule + "&trigger.timeZone=Europe/Oslo")
+                .to("direct:makeCSV");
+
+        from("direct:makeCSV")
+                .process(exchange -> {
+                    Message in = exchange.getIn();
+                })
+                .setHeader(BLOB_STORE_FILE_HANDLE, constant(tiamatGeocoderFile))
                 .bean(kakkaBlobStoreService, "getBlob")
                 .setHeader(WORK_DIRECTORY_HEADER, constant(bahamutWorkDir))
                 .process(ZipUtilities::unzipFile)
                 .process(StopPlacesDataRouteBuilder::parseNetexFile)
-                .process(this::fromDeliveryPublicationStructure)
+                .process(this::buildAdminUnitCache)
+                .process(this::netexEntitiesIndexToPeliasDocument)
+                .bean(new PeliasIndexParentInfoEnricher())
                 .bean(new CSVCreator())
+                .process(StopPlacesDataRouteBuilder::setOutputFilenameHeaders)
                 .process(ZipUtilities::zipFile)
-                .setHeader(FILE_HANDLE, constant(bahamutGeocoderFile))
                 .bean(bahamutBlobStoreService, "uploadBlob");
+    }
+
+    private static void setOutputFilenameHeaders(Exchange exchange) {
+        String outputFilename = "bahamut_export_geocoder_" + System.currentTimeMillis();
+        exchange.getIn().setHeader(BLOB_STORE_FILE_HANDLE, outputFilename + ".zip");
+        exchange.getIn().setHeader(OUTPUT_FILENAME_HEADER, outputFilename + ".csv");
     }
 
     private void logRedelivery(Exchange exchange) {
@@ -113,30 +135,31 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
         }
     }
 
-    private void fromDeliveryPublicationStructure(Exchange exchange) {
+    private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
 
         NetexEntitiesIndex netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
 
         StopPlaceToPeliasMapper stopPlaceToPeliasMapper = new StopPlaceToPeliasMapper(stopPlaceBoostConfiguration);
         TopographicPlaceToPeliasMapper topographicPlaceToPeliasMapper = new TopographicPlaceToPeliasMapper(1L, Collections.emptyList());
 
-        List<ElasticsearchCommand> stopPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
+        List<PeliasDocument> stopPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
                 .flatMap(stopPlaces -> PlaceHierarchies.create(stopPlaces).stream())
                 .flatMap(placeHierarchies -> stopPlaceToPeliasMapper.toPeliasDocuments(placeHierarchies).stream())
                 .sorted(new PeliasDocumentPopularityComparator())
-                .map(ElasticsearchCommand::peliasIndexCommand)
                 .toList();
 
-        List<ElasticsearchCommand> topographicalPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
+        List<PeliasDocument> topographicalPlaceCommands = netexEntitiesIndex.getSiteFrames().stream()
                 .flatMap(siteFrame -> siteFrame.getTopographicPlaces().getTopographicPlace().stream())
                 .flatMap(topographicPlace -> topographicPlaceToPeliasMapper.toPeliasDocuments(new PlaceHierarchy<>(topographicPlace)).stream())
                 .sorted(new PeliasDocumentPopularityComparator())
-                .map(ElasticsearchCommand::peliasIndexCommand)
                 .toList();
 
         exchange.getIn().setBody(
-                Stream.concat(Stream.of(stopPlaceCommands), Stream.of(topographicalPlaceCommands)).flatMap(List::stream).toList()
+                Stream.concat(Stream.of(stopPlaceCommands), Stream.of(topographicalPlaceCommands))
+                        .flatMap(List::stream)
+                        .filter(PeliasIndexValidCommandFilter::isValid)
+                        .toList()
         );
     }
 
@@ -148,5 +171,11 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
             Long p2 = o2 == null || o2.getPopularity() == null ? 1L : o2.getPopularity();
             return -p1.compareTo(p2);
         }
+    }
+
+    private void buildAdminUnitCache(Exchange exchange) {
+        NetexEntitiesIndex netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
+        AdminUnitsCache adminUnitsCache = AdminUnitsCache.buildNewCache(netexEntitiesIndex, cacheMaxSize);
+        exchange.setProperty(ADMIN_UNITS_CACHE_PROPERTY, adminUnitsCache);
     }
 }

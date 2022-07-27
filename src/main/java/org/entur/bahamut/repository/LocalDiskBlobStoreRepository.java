@@ -18,6 +18,8 @@
 
 package org.entur.bahamut.repository;
 
+import com.google.cloud.storage.Storage;
+import org.entur.bahamut.camel.adminUnitsRepository.BlobStoreFiles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +34,12 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Simple file-based blob store no.entur.antu.repository for testing purpose.
@@ -101,4 +109,31 @@ public class LocalDiskBlobStoreRepository implements BlobStoreRepository {
         this.containerName = bucketName;
     }
 
+    @Override
+    public void setStorage(Storage storage) {
+        // TODO: Not good
+    }
+
+    @Override
+    public BlobStoreFiles listBlobs(String prefix) {
+        return listBlobs(List.of(prefix));
+    }
+
+    public BlobStoreFiles listBlobs(Collection<String> prefixes) {
+
+        BlobStoreFiles blobStoreFiles = new BlobStoreFiles();
+        for (String prefix : prefixes) {
+            if (Paths.get(baseFolder, prefix).toFile().isDirectory()) {
+                try (Stream<Path> walk = Files.walk(Paths.get(baseFolder, prefix))) {
+                    List<BlobStoreFiles.File> result = walk.filter(Files::isRegularFile)
+                            .map(x -> new BlobStoreFiles.File(Paths.get(baseFolder).relativize(x).toString(), new Date(), new Date(), x.toFile().length())).collect(Collectors.toList());
+                    blobStoreFiles.add(result);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+        }
+        return blobStoreFiles;
+    }
 }

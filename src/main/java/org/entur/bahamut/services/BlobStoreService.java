@@ -24,7 +24,7 @@ import org.entur.bahamut.repository.BlobStoreRepository;
 import java.io.InputStream;
 
 public abstract class BlobStoreService {
-    public static final String FILE_HANDLE = "EnturFileHandle";
+    public static final String BLOB_STORE_FILE_HANDLE = "EnturFileHandle";
 
     protected final BlobStoreRepository repository;
 
@@ -34,15 +34,15 @@ public abstract class BlobStoreService {
         System.out.println();
     }
 
-    public boolean existBlob(@Header(value = FILE_HANDLE) String name) {
+    public boolean existBlob(@Header(value = BLOB_STORE_FILE_HANDLE) String name) {
         return repository.existBlob(name);
     }
 
-    public InputStream getBlob(@Header(value = FILE_HANDLE) String name) {
+    public InputStream getBlob(@Header(value = BLOB_STORE_FILE_HANDLE) String name) {
         return repository.getBlob(name);
     }
 
-    public void uploadBlob(@Header(value = FILE_HANDLE) String name, InputStream inputStream) {
+    public void uploadBlob(@Header(value = BLOB_STORE_FILE_HANDLE) String name, InputStream inputStream) {
         repository.uploadBlob(name, inputStream);
     }
 }
