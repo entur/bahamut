@@ -28,12 +28,13 @@ import java.util.*;
 import java.util.stream.Stream;
 
 import static org.entur.bahamut.camel.PeliasIndexParentInfoEnricher.ADMIN_UNITS_CACHE_PROPERTY;
-import static org.entur.bahamut.services.BlobStoreService.FILE_HANDLE;
+import static org.entur.bahamut.services.BlobStoreService.BLOB_STORE_FILE_HANDLE;
 
 @Component
 public class StopPlacesDataRouteBuilder extends RouteBuilder {
 
     public static final String WORK_DIRECTORY_HEADER = "bahamutWorkDir";
+    public static final String OUTPUT_FILENAME_HEADER = "bahamutOutputFilename";
 
     @Value("${bahamut.camel.redelivery.max:3}")
     private int maxRedelivery;
@@ -91,7 +92,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .process(exchange -> {
                     Message in = exchange.getIn();
                 })
-                .setHeader(FILE_HANDLE, constant(tiamatGeocoderFile))
+                .setHeader(BLOB_STORE_FILE_HANDLE, constant(tiamatGeocoderFile))
                 .bean(kakkaBlobStoreService, "getBlob")
                 .setHeader(WORK_DIRECTORY_HEADER, constant(bahamutWorkDir))
                 .process(ZipUtilities::unzipFile)
@@ -100,9 +101,15 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .process(this::netexEntitiesIndexToPeliasDocument)
                 .bean(new PeliasIndexParentInfoEnricher())
                 .bean(new CSVCreator())
+                .process(StopPlacesDataRouteBuilder::setOutputFilenameHeaders)
                 .process(ZipUtilities::zipFile)
-                .setHeader(FILE_HANDLE, constant(bahamutGeocoderFile))
                 .bean(bahamutBlobStoreService, "uploadBlob");
+    }
+
+    private static void setOutputFilenameHeaders(Exchange exchange) {
+        String outputFilename = "bahamut_export_geocoder_" + System.currentTimeMillis();
+        exchange.getIn().setHeader(BLOB_STORE_FILE_HANDLE, outputFilename + ".zip");
+        exchange.getIn().setHeader(OUTPUT_FILENAME_HEADER, outputFilename + ".csv");
     }
 
     private void logRedelivery(Exchange exchange) {
