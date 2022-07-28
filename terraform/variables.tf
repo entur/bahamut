@@ -43,7 +43,7 @@ variable "service_account_bucket_role_kakka" {
 
 variable "service_account_bucket_role_bahamut" {
   description = "Role of the Service Account - more about roles https://cloud.google.com/storage/docs/access-control/iam-roles"
-  default = "roles/storage.objectCreator"
+  default = "roles/storage.objectAdmin"
 }
 
 variable "bucket_bahamut_instance_name" {
