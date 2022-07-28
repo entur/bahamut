@@ -46,7 +46,7 @@ public abstract class AbstractNetexPlaceToPeliasDocumentMapper<T extends Place_V
         if (!isValid(place)) {
             return new ArrayList<>();
         }
-        AtomicInteger cnt = new AtomicInteger();
+        var cnt = new AtomicInteger();
 
         return getNames(placeHierarchy).stream()
                 .map(name -> toPeliasDocument(placeHierarchy, name, cnt.getAndAdd(1)))
@@ -56,15 +56,15 @@ public abstract class AbstractNetexPlaceToPeliasDocumentMapper<T extends Place_V
     private PeliasDocument toPeliasDocument(PlaceHierarchy<T> placeHierarchy, MultilingualString name, int idx) {
         T place = placeHierarchy.getPlace();
 
-        String idSuffix = idx > 0 ? "-" + idx : "";
+        var idSuffix = idx > 0 ? "-" + idx : "";
 
-        PeliasDocument document = new PeliasDocument(getLayer(place), place.getId() + idSuffix);
+        var document = new PeliasDocument(getLayer(place), place.getId() + idSuffix);
         if (name != null) {
             document.setDefaultNameAndPhrase(name.getValue());
         }
 
         // Add official name as display name. Not a part of standard pelias model, will be copied to name.default before deduping and labelling in Entur-pelias API.
-        MultilingualString displayName = getDisplayName(placeHierarchy);
+        var displayName = getDisplayName(placeHierarchy);
         if (displayName != null) {
             document.getNameMap().put("display", displayName.getValue());
             if (displayName.getLang() != null) {
@@ -74,7 +74,7 @@ public abstract class AbstractNetexPlaceToPeliasDocumentMapper<T extends Place_V
 
         // StopPlaces
         if (place.getCentroid() != null) {
-            LocationStructure loc = place.getCentroid().getLocation();
+            var loc = place.getCentroid().getLocation();
             document.setCenterPoint(new GeoPoint(loc.getLatitude().doubleValue(), loc.getLongitude().doubleValue()));
         }
 
@@ -87,7 +87,7 @@ public abstract class AbstractNetexPlaceToPeliasDocumentMapper<T extends Place_V
         addIdToStreetNameToAvoidFalseDuplicates(place, document);
 
         if (place.getDescription() != null && !StringUtils.isEmpty(place.getDescription().getValue())) {
-            String lang = place.getDescription().getLang();
+            var lang = place.getDescription().getLang();
             if (lang == null) {
                 lang = DEFAULT_LANGUAGE;
             }
@@ -115,7 +115,7 @@ public abstract class AbstractNetexPlaceToPeliasDocumentMapper<T extends Place_V
     protected abstract List<MultilingualString> getNames(PlaceHierarchy<T> placeHierarchy);
 
     protected boolean isValid(T place) {
-        String layer = getLayer(place);
+        var layer = getLayer(place);
 
         if (layer == null) {
             return false;

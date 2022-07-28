@@ -1,6 +1,8 @@
 package org.entur.bahamut.camel;
 
 import org.apache.camel.Exchange;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -14,21 +16,23 @@ import static org.entur.bahamut.camel.routes.StopPlacesDataRouteBuilder.WORK_DIR
 
 public final class ZipUtilities {
 
+    private static final Logger logger = LoggerFactory.getLogger(ZipUtilities.class);
+
     public static void unzipFile(Exchange exchange) {
-        InputStream inputStream = exchange.getIn().getBody(InputStream.class);
-        String targetFolder = exchange.getIn().getHeader(WORK_DIRECTORY_HEADER, String.class);
+        var inputStream = exchange.getIn().getBody(InputStream.class);
+        var targetFolder = exchange.getIn().getHeader(WORK_DIRECTORY_HEADER, String.class);
         unzipFile(inputStream, targetFolder);
     }
 
     public static void unzipFile(InputStream inputStream, String targetFolder) {
         try (ZipInputStream zis = new ZipInputStream(inputStream)) {
-            byte[] buffer = new byte[1024];
-            ZipEntry zipEntry = zis.getNextEntry();
+            var buffer = new byte[1024];
+            var zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
-                String fileName = zipEntry.getName();
-//                logger.info("unzipping file {} in folder {} ", fileName, targetFolder);
+                var fileName = zipEntry.getName();
+                logger.info("unzipping file {} in folder {} ", fileName, targetFolder);
 
-                Path path = Path.of(targetFolder + "/" + fileName);
+                var path = Path.of(targetFolder + "/" + fileName);
                 if (Files.isDirectory(path)) {
                     path.toFile().mkdirs();
                     continue;
@@ -40,7 +44,7 @@ public final class ZipUtilities {
                 }
 
 
-                FileOutputStream fos = new FileOutputStream(path.toFile());
+                var fos = new FileOutputStream(path.toFile());
                 int len;
                 while ((len = zis.read(buffer)) > 0) {
                     fos.write(buffer, 0, len);
@@ -55,13 +59,14 @@ public final class ZipUtilities {
     }
 
     public static void zipFile(Exchange exchange) {
-        InputStream inputStream = exchange.getIn().getBody(InputStream.class);
-        String outputFilename = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class);
+        var inputStream = exchange.getIn().getBody(InputStream.class);
+        var outputFilename = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class);
+        logger.info("zipping file {}", outputFilename);
         try {
-            byte[] inputBytes = inputStream.readAllBytes();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ZipOutputStream zos = new ZipOutputStream(baos);
-            ZipEntry entry = new ZipEntry(outputFilename);
+            var inputBytes = inputStream.readAllBytes();
+            var baos = new ByteArrayOutputStream();
+            var zos = new ZipOutputStream(baos);
+            var entry = new ZipEntry(outputFilename);
             entry.setSize(inputBytes.length);
             zos.putNextEntry(entry);
             zos.write(inputBytes);

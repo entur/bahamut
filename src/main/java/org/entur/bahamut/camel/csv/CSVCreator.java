@@ -2,96 +2,50 @@ package org.entur.bahamut.camel.csv;
 
 import com.opencsv.CSVWriter;
 import org.entur.bahamut.camel.routes.json.PeliasDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.entur.bahamut.camel.csv.CSVHeaders.*;
 
 public final class CSVCreator {
 
-    private static CSVValue CSVValue(Object value) {
-        return new CSVValue(value, false);
-    }
-
-    private static CSVValue CSVJsonValue(Object value) {
-        return new CSVValue(value, true);
-    }
+    private static final Logger LOGGER = LoggerFactory.getLogger(CSVCreator.class);
 
     public InputStream create(List<PeliasDocument> peliasDocuments) {
 
-        Set<String> headers = new java.util.HashSet<>();
-        headers.add(ID);
-        headers.add(INDEX);
-        headers.add(TYPE);
-        headers.add(NAME);
-        headers.add(ALIAS);
-        headers.add(LATITUDE);
-        headers.add(LONGITUDE);
-        headers.add(ADDRESS_STREET);
-        headers.add(ADDRESS_NUMBER);
-        headers.add(ADDRESS_ZIP);
-        headers.add(POPULARITY);
-        headers.add(CATEGORY);
-        headers.add(DESCRIPTION);
-        headers.add(SOURCE);
-        headers.add(SOURCE_ID);
-        headers.add(LAYER);
-        headers.add(PARENT);
+        LOGGER.debug("Creating CSV file for " + peliasDocuments.size() + " pelias documents");
 
-        List<Map<String, CSVValue>> csvDocuments = peliasDocuments.stream().map(document -> {
-            Map<String, CSVValue> map = new HashMap<>();
-            map.put(ID, CSVValue(document.getSourceId()));
-            map.put(INDEX, CSVValue(document.getIndex()));
-            map.put(TYPE, CSVValue(document.getLayer()));
+        var headers = Stream
+                .of(ID, INDEX, TYPE, NAME, ALIAS, LATITUDE, LONGITUDE, ADDRESS_STREET, ADDRESS_NUMBER, ADDRESS_ZIP,
+                        POPULARITY, CATEGORY, DESCRIPTION, SOURCE, SOURCE_ID, LAYER, PARENT)
+                .collect(Collectors.toCollection(HashSet::new));
 
-            map.put(NAME, CSVValue(document.getDefaultName()));
-            document.getNameMap().entrySet().stream()
-                    .filter(entry -> !entry.getKey().equals("default"))
-                    .forEach(entry -> {
-                        String header = NAME + "_" + entry.getKey();
-                        headers.add(header);
-                        map.put(header, CSVValue(entry.getValue()));
-                    });
-            if (document.getDefaultAlias() != null) {
-                map.put(ALIAS, CSVJsonValue(List.of(document.getDefaultAlias())));
-            }
-            if (document.getAliasMap() != null) {
-                document.getAliasMap().entrySet().stream()
-                        .filter(entry -> !entry.getKey().equals("default"))
-                        .forEach(entry -> {
-                            String header = ALIAS + "_" + entry.getKey();
-                            headers.add(header);
-                            map.put(header, CSVJsonValue(List.of(entry.getValue())));
-                        });
-            }
-            if (document.getCenterPoint() != null) {
-                map.put(LATITUDE, CSVValue(document.getCenterPoint().lat()));
-                map.put(LONGITUDE, CSVValue(document.getCenterPoint().lon()));
-            }
-            if (document.getAddressParts() != null) {
-                map.put(ADDRESS_STREET, CSVValue(document.getAddressParts().getStreet()));
-                map.put(ADDRESS_NUMBER, CSVValue(document.getAddressParts().getNumber()));
-                map.put(ADDRESS_ZIP, CSVValue(document.getAddressParts().getZip()));
-            }
-            map.put(POPULARITY, CSVValue(document.getPopularity()));
-            map.put(CATEGORY, CSVJsonValue(document.getCategory()));
-            map.put(DESCRIPTION, CSVJsonValue(document.getDescriptionMap()));
-            map.put(SOURCE, CSVValue(document.getSource()));
-            map.put(SOURCE_ID, CSVValue(document.getSourceId()));
-            map.put(LAYER, CSVValue(document.getLayer()));
-            map.put(PARENT, CSVJsonValue(document.getParent().getParentFields()));
-            return map;
-        }).toList();
+        var csvDocuments = peliasDocuments.stream()
+                .map(document -> createCSVDocument(document, headers::add))
+                .toList();
 
-        List<String[]> stringArrays = csvDocuments.stream().map(csvDocument -> headers.stream()
+        var stringArrays = csvDocuments.stream()
+                .map(csvDocument -> headers.stream()
                         .map(header -> csvDocument.computeIfAbsent(header, h -> CSVValue("")))
                         .map(CSVValue::toString)
                         .toArray(String[]::new))
                 .toList();
 
+        ByteArrayOutputStream outputStream = writeStringArraysToCSVFile(stringArrays, headers);
+
+        return new ByteArrayInputStream(outputStream.toByteArray());
+    }
+
+    private ByteArrayOutputStream writeStringArraysToCSVFile(List<String[]> stringArrays,
+                                                             Set<String> headers) {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        try (CSVWriter writer = new CSVWriter(new OutputStreamWriter(outputStream))) {
+        try (var writer = new CSVWriter(new OutputStreamWriter(outputStream))) {
             writer.writeNext(headers.toArray(String[]::new));
             for (String[] array : stringArrays) {
                 writer.writeNext(array);
@@ -100,6 +54,62 @@ public final class CSVCreator {
             throw new RuntimeException("Fail to create csv.", exception);
         }
 
-        return new ByteArrayInputStream(outputStream.toByteArray());
+        return outputStream;
+    }
+
+    private static HashMap<String, CSVValue> createCSVDocument(PeliasDocument peliasDocument, Consumer<String> addNewHeader) {
+        var map = new HashMap<String, CSVValue>();
+        map.put(ID, CSVValue(peliasDocument.getSourceId()));
+        map.put(INDEX, CSVValue(peliasDocument.getIndex()));
+        map.put(TYPE, CSVValue(peliasDocument.getLayer()));
+
+        map.put(NAME, CSVValue(peliasDocument.getDefaultName()));
+        peliasDocument.getNameMap().entrySet().stream()
+                .filter(entry -> !entry.getKey().equals("default"))
+                .forEach(entry -> {
+                    String header = NAME + "_" + entry.getKey();
+                    addNewHeader.accept(header);
+                    map.put(header, CSVValue(entry.getValue()));
+                });
+        if (peliasDocument.getDefaultAlias() != null) {
+            map.put(ALIAS, CSVJsonValue(List.of(peliasDocument.getDefaultAlias())));
+        }
+        if (peliasDocument.getAliasMap() != null) {
+            peliasDocument.getAliasMap().entrySet().stream()
+                    .filter(entry -> !entry.getKey().equals("default"))
+                    .forEach(entry -> {
+                        String header = ALIAS + "_" + entry.getKey();
+                        addNewHeader.accept(header);
+                        map.put(header, CSVJsonValue(List.of(entry.getValue())));
+                    });
+        }
+        if (peliasDocument.getCenterPoint() != null) {
+            map.put(LATITUDE, CSVValue(peliasDocument.getCenterPoint().lat()));
+            map.put(LONGITUDE, CSVValue(peliasDocument.getCenterPoint().lon()));
+        }
+        if (peliasDocument.getAddressParts() != null) {
+            map.put(ADDRESS_STREET, CSVValue(peliasDocument.getAddressParts().getStreet()));
+            map.put(ADDRESS_NUMBER, CSVValue(peliasDocument.getAddressParts().getNumber()));
+            map.put(ADDRESS_ZIP, CSVValue(peliasDocument.getAddressParts().getZip()));
+        }
+        map.put(POPULARITY, CSVValue(peliasDocument.getPopularity()));
+        map.put(CATEGORY, CSVJsonValue(peliasDocument.getCategory()));
+        map.put(DESCRIPTION, CSVJsonValue(peliasDocument.getDescriptionMap()));
+        map.put(SOURCE, CSVValue(peliasDocument.getSource()));
+        map.put(SOURCE_ID, CSVValue(peliasDocument.getSourceId()));
+        map.put(LAYER, CSVValue(peliasDocument.getLayer()));
+        if (peliasDocument.getParent() != null) {
+            map.put(PARENT, CSVJsonValue(peliasDocument.getParent().getParentFields()));
+        }
+
+        return map;
+    }
+
+    private static CSVValue CSVValue(Object value) {
+        return new CSVValue(value, false);
+    }
+
+    private static CSVValue CSVJsonValue(Object value) {
+        return new CSVValue(value, true);
     }
 }

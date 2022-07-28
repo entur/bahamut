@@ -8,16 +8,16 @@ import java.util.stream.Collectors;
 public class PlaceHierarchies {
 
     public static Set<PlaceHierarchy<StopPlace>> create(List<StopPlace> places) {
-        Map<String, List<StopPlace>> childStopPlacesByParentRef = places.stream()
+        var childStopPlacesByParentRef = places.stream()
                 .filter(sp -> sp.getParentSiteRef() != null)
                 .collect(Collectors.groupingBy(sp -> sp.getParentSiteRef().getRef()));
 
-        List<PlaceHierarchy<StopPlace>> stopPlaceHierarchies = places.stream()
+        var stopPlaceHierarchies = places.stream()
                 .filter(sp -> sp.getParentSiteRef() == null)
                 .map(sp -> createHierarchyForStopPlace(sp, null, childStopPlacesByParentRef))
                 .toList();
 
-        Set<PlaceHierarchy<StopPlace>> allStopPlaces = new HashSet<>();
+        var allStopPlaces = new HashSet<PlaceHierarchy<StopPlace>>();
         expandStopPlaceHierarchies(stopPlaceHierarchies, allStopPlaces);
         return allStopPlaces;
     }
@@ -25,7 +25,7 @@ public class PlaceHierarchies {
     private static void expandStopPlaceHierarchies(Collection<PlaceHierarchy<StopPlace>> hierarchies,
                                                    Set<PlaceHierarchy<StopPlace>> target) {
         if (hierarchies != null) {
-            for (PlaceHierarchy<StopPlace> stopPlacePlaceHierarchy : hierarchies) {
+            for (var stopPlacePlaceHierarchy : hierarchies) {
                 target.add(stopPlacePlaceHierarchy);
                 expandStopPlaceHierarchies(stopPlacePlaceHierarchy.getChildren(), target);
             }
@@ -35,7 +35,7 @@ public class PlaceHierarchies {
     private static PlaceHierarchy<StopPlace> createHierarchyForStopPlace(StopPlace stopPlace,
                                                                          PlaceHierarchy<StopPlace> parent,
                                                                          Map<String, List<StopPlace>> childrenByParentIdMap) {
-        List<StopPlace> children = childrenByParentIdMap.get(stopPlace.getId());
+        var children = childrenByParentIdMap.get(stopPlace.getId());
         List<PlaceHierarchy<StopPlace>> childHierarchies = new ArrayList<>();
         PlaceHierarchy<StopPlace> hierarchy = new PlaceHierarchy<>(stopPlace, parent);
         if (children != null) {

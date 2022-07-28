@@ -17,10 +17,8 @@
 package org.entur.bahamut.camel.placeHierarchy;
 
 import org.rutebanken.netex.model.Place_VersionStructure;
-import org.rutebanken.netex.model.StopPlace;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class PlaceHierarchy<T extends Place_VersionStructure> {
 

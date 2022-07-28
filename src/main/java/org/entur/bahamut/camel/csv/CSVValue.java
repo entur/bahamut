@@ -13,9 +13,9 @@ public record CSVValue(Object value, boolean json) {
             return "";
         } else if (json) {
             try {
-                ObjectMapper mapper = new ObjectMapper();
+                var mapper = new ObjectMapper();
                 mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-                StringWriter writer = new StringWriter();
+                var writer = new StringWriter();
                 mapper.writeValue(writer, value);
                 return writer.toString();
             } catch (IOException e) {

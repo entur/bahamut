@@ -60,17 +60,17 @@ public record AdminUnit(
     }
 
     private static CoordinateSequence convertToCoordinateSequence(AbstractRingPropertyType abstractRingPropertyType) {
-        final List<Double> coordinateValues = Optional.of(abstractRingPropertyType)
+        var coordinateValues = Optional.of(abstractRingPropertyType)
                 .map(AbstractRingPropertyType::getAbstractRing)
                 .map(JAXBElement::getValue)
                 .map(abstractRing -> ((LinearRingType) abstractRing))
                 .map(LinearRingType::getPosList)
                 .map(DirectPositionListType::getValue).orElse(Collections.emptyList());
 
-        Coordinate[] coordinates = new Coordinate[coordinateValues.size() / 2];
+        var coordinates = new Coordinate[coordinateValues.size() / 2];
         int coordinateIndex = 0;
         for (int index = 0; index < coordinateValues.size(); index += 2) {
-            Coordinate coordinate = new Coordinate(coordinateValues.get(index + 1), coordinateValues.get(index));
+            var coordinate = new Coordinate(coordinateValues.get(index + 1), coordinateValues.get(index));
             coordinates[coordinateIndex++] = coordinate;
         }
         return new CoordinateArraySequence(coordinates);

@@ -30,7 +30,7 @@ public class NetexPeliasMapperUtil {
 
     // Should compare instant with validbetween from/to in timezone defined in PublicationDelivery, but makes little difference in practice
     private static boolean isValidNow(ValidBetween validBetween) {
-        LocalDateTime now = LocalDateTime.now();
+        var now = LocalDateTime.now();
         if (validBetween != null) {
             if (validBetween.getFromDate() != null && validBetween.getFromDate().isAfter(now)) {
                 return false;
@@ -44,9 +44,9 @@ public class NetexPeliasMapperUtil {
     public static Polygon toPolygon(AbstractRingType ring) {
 
         if (ring instanceof LinearRingType) {
-            LinearRingType linearRing = (LinearRingType) ring;
+            var linearRing = (LinearRingType) ring;
 
-            List<LngLatAlt> coordinates = new ArrayList<>();
+            var coordinates = new ArrayList<LngLatAlt>();
             LngLatAlt coordinate = null;
             LngLatAlt prevCoordinate = null;
             for (Double val : linearRing.getPosList().getValue()) {

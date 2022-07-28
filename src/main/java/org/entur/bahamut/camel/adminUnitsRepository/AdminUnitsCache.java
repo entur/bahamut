@@ -18,11 +18,11 @@ public record AdminUnitsCache(Cache<String, String> adminUnitNamesCache,
                               List<GroupOfStopPlaces> groupOfStopPlaces) {
     public static AdminUnitsCache buildNewCache(NetexEntitiesIndex netexEntitiesIndex, Integer cacheMaxSize) {
 
-        List<GroupOfStopPlaces> groupOfStopPlaces = netexEntitiesIndex.getSiteFrames().stream()
+        var groupOfStopPlaces = netexEntitiesIndex.getSiteFrames().stream()
                 .flatMap(siteFrame -> siteFrame.getGroupsOfStopPlaces().getGroupOfStopPlaces().stream())
                 .toList();
 
-        List<AdminUnit> allAdminUnits = netexEntitiesIndex.getSiteFrames().stream()
+        var allAdminUnits = netexEntitiesIndex.getSiteFrames().stream()
                 .flatMap(siteFrame -> siteFrame.getTopographicPlaces().getTopographicPlace().stream())
                 .filter(AdminUnitsCache::isCurrent)
                 .filter(topographicPlace -> {
@@ -33,10 +33,10 @@ public record AdminUnitsCache(Cache<String, String> adminUnitNamesCache,
                 .map(AdminUnit::makeAdminUnit)
                 .toList();
 
-        List<AdminUnit> localities = allAdminUnits.stream()
+        var localities = allAdminUnits.stream()
                 .filter(adminUnit -> adminUnit.adminUnitType() == AdminUnitType.LOCALITY).toList();
 
-        List<AdminUnit> countries = allAdminUnits.stream()
+        var countries = allAdminUnits.stream()
                 .filter(adminUnit -> adminUnit.adminUnitType() == AdminUnitType.COUNTRY)
                 .filter(adminUnit -> !adminUnit.countryRef().equals(IanaCountryTldEnumeration.RU.name()))
                 .toList();
@@ -57,8 +57,8 @@ public record AdminUnitsCache(Cache<String, String> adminUnitNamesCache,
         if (validBetween == null) {
             return false;
         }
-        final LocalDateTime fromDate = validBetween.getFromDate();
-        final LocalDateTime toDate = validBetween.getToDate();
+        var fromDate = validBetween.getFromDate();
+        var toDate = validBetween.getToDate();
         if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             // Invalid Validity toDate < fromDate
             return false;
@@ -89,7 +89,7 @@ public record AdminUnitsCache(Cache<String, String> adminUnitNamesCache,
             return null;
         }
 
-        for (AdminUnit topographicPlace : topographicPlaces) {
+        for (var topographicPlace : topographicPlaces) {
             var polygon = topographicPlace.geometry();
             if (polygon != null && polygon.covers(point)) {
                 return topographicPlace;

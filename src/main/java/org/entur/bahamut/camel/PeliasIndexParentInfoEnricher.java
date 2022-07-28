@@ -18,14 +18,11 @@ package org.entur.bahamut.camel;
 
 import org.apache.camel.Body;
 import org.apache.camel.ExchangeProperty;
-import org.entur.bahamut.camel.adminUnitsRepository.AdminUnit;
 import org.entur.bahamut.camel.adminUnitsRepository.AdminUnitsCache;
-import org.entur.bahamut.camel.routes.json.GeoPoint;
 import org.entur.bahamut.camel.routes.json.Parent;
 import org.entur.bahamut.camel.routes.json.PeliasDocument;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -48,7 +45,7 @@ public class PeliasIndexParentInfoEnricher {
                                      @ExchangeProperty(value = ADMIN_UNITS_CACHE_PROPERTY) AdminUnitsCache adminUnitCache) {
         logger.debug("Start updating missing parent info for {} peliasDocuments", peliasDocuments.size());
 
-        AtomicInteger index = new AtomicInteger(0);
+        var index = new AtomicInteger(0);
         peliasDocuments
                 .forEach(peliasDocument -> {
                     addMissingParentInfo(adminUnitCache, peliasDocument);
@@ -57,7 +54,7 @@ public class PeliasIndexParentInfoEnricher {
     }
 
     private void addMissingParentInfo(AdminUnitsCache adminUnitsCache, PeliasDocument peliasDocument) {
-        Parent parent = peliasDocument.getParent();
+        var parent = peliasDocument.getParent();
 
         if (parent == null || parent.idFor(Parent.FieldName.LOCALITY).isEmpty()) {
             addParentInfoByReverseGeoLookup(adminUnitsCache, peliasDocument);
@@ -75,12 +72,12 @@ public class PeliasIndexParentInfoEnricher {
     }
 
     private void addParentInfoByIds(AdminUnitsCache adminUnitsCache, PeliasDocument peliasDocument) {
-        Parent parent = peliasDocument.getParent();
+        var parent = peliasDocument.getParent();
 
         parent.idFor(Parent.FieldName.LOCALITY).ifPresent(localityId -> {
             if (parent.nameFor(Parent.FieldName.LOCALITY).isEmpty()) {
                 logger.debug("1. Locality is missing get locality name by id: " + localityId + " type: " + peliasDocument.getLayer());
-                AdminUnit adminUnitLocality = adminUnitsCache.getLocalityForId(localityId);
+                var adminUnitLocality = adminUnitsCache.getLocalityForId(localityId);
                 if (adminUnitLocality != null) {
                     parent.setNameFor(Parent.FieldName.LOCALITY, adminUnitLocality.name());
                     parent.addOrReplaceParentField(Parent.FieldName.COUNTY, new Parent.Field(adminUnitLocality.parentId(), null)); // TODO
@@ -94,7 +91,7 @@ public class PeliasIndexParentInfoEnricher {
                     addParentInfoByReverseGeoLookup(adminUnitsCache, peliasDocument);
 
                     logger.debug("3. Once again setLocality by Id : " + localityId);
-                    String adminUnitName = adminUnitsCache.getAdminUnitNameForId(localityId);
+                    var adminUnitName = adminUnitsCache.getAdminUnitNameForId(localityId);
 
                     parent.setNameFor(Parent.FieldName.LOCALITY, adminUnitName);
                 }
@@ -105,20 +102,20 @@ public class PeliasIndexParentInfoEnricher {
         parent.idFor(Parent.FieldName.COUNTY).ifPresent(countyId -> {
             if (parent.nameFor(Parent.FieldName.COUNTY).isEmpty()) {
                 logger.debug("County is missing get county name by id: " + countyId + " type: " + peliasDocument.getLayer());
-                String adminUnitName = adminUnitsCache.getAdminUnitNameForId(countyId);
+                var adminUnitName = adminUnitsCache.getAdminUnitNameForId(countyId);
                 parent.setNameFor(Parent.FieldName.COUNTY, adminUnitName);
             }
         });
     }
 
     private void addParentInfoByReverseGeoLookup(AdminUnitsCache adminUnitsCache, PeliasDocument peliasDocument) {
-        GeoPoint centerPoint = peliasDocument.getCenterPoint();
+        var centerPoint = peliasDocument.getCenterPoint();
         if (centerPoint != null) {
-            Point point = geometryFactory.createPoint(new Coordinate(centerPoint.lon(), centerPoint.lat()));
+            var point = geometryFactory.createPoint(new Coordinate(centerPoint.lon(), centerPoint.lat()));
 
-            AdminUnit adminUnitLocality = adminUnitsCache.getLocalityForPoint(point);
-            AdminUnit adminUnitCountry = adminUnitsCache.getCountryForPoint(point); // TODO: No need to run it, if its not needed
-            Parent parent = peliasDocument.getParent();
+            var adminUnitLocality = adminUnitsCache.getLocalityForPoint(point);
+            var adminUnitCountry = adminUnitsCache.getCountryForPoint(point); // TODO: No need to run it, if its not needed
+            var parent = peliasDocument.getParent();
             if (adminUnitLocality != null) {
                 if (parent == null) {
                     parent = new Parent();

@@ -32,14 +32,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Simple file-based blob store no.entur.antu.repository for testing purpose.
@@ -63,14 +60,14 @@ public class LocalDiskBlobStoreRepository implements BlobStoreRepository {
     @Override
     public boolean existBlob(String objectName) {
         LOGGER.debug("existBlob called in local-disk blob store on {}", objectName);
-        Path path = Paths.get(getContainerFolder()).resolve(objectName);
+        var path = Paths.get(getContainerFolder()).resolve(objectName);
         return path.toFile().exists();
     }
 
     @Override
     public InputStream getBlob(String objectName) {
         LOGGER.debug("get blob called in local-disk blob store on {}", objectName);
-        Path path = Paths.get(getContainerFolder()).resolve(objectName);
+        var path = Paths.get(getContainerFolder()).resolve(objectName);
         if (!path.toFile().exists()) {
             LOGGER.debug("getBlob(): File not found in local-disk blob store: {} ", path);
             return null;
@@ -89,12 +86,12 @@ public class LocalDiskBlobStoreRepository implements BlobStoreRepository {
     public void uploadBlob(String objectName, InputStream inputStream) {
         LOGGER.debug("Upload blob called in local-disk blob store on {}", objectName);
         try {
-            Path localPath = Paths.get(objectName);
-            Path parentDirectory = localPath.getParent();
-            Path folder = parentDirectory == null ? Paths.get(getContainerFolder()) : Paths.get(getContainerFolder()).resolve(parentDirectory);
+            var localPath = Paths.get(objectName);
+            var parentDirectory = localPath.getParent();
+            var folder = parentDirectory == null ? Paths.get(getContainerFolder()) : Paths.get(getContainerFolder()).resolve(parentDirectory);
             Files.createDirectories(folder);
 
-            Path fullPath = Paths.get(getContainerFolder()).resolve(localPath);
+            var fullPath = Paths.get(getContainerFolder()).resolve(localPath);
             Files.deleteIfExists(fullPath);
 
             Files.copy(inputStream, fullPath);
@@ -121,11 +118,11 @@ public class LocalDiskBlobStoreRepository implements BlobStoreRepository {
 
     public BlobStoreFiles listBlobs(Collection<String> prefixes) {
 
-        BlobStoreFiles blobStoreFiles = new BlobStoreFiles();
-        for (String prefix : prefixes) {
+        var blobStoreFiles = new BlobStoreFiles();
+        for (var prefix : prefixes) {
             if (Paths.get(baseFolder, prefix).toFile().isDirectory()) {
-                try (Stream<Path> walk = Files.walk(Paths.get(baseFolder, prefix))) {
-                    List<BlobStoreFiles.File> result = walk.filter(Files::isRegularFile)
+                try (var walk = Files.walk(Paths.get(baseFolder, prefix))) {
+                    var result = walk.filter(Files::isRegularFile)
                             .map(x -> new BlobStoreFiles.File(Paths.get(baseFolder).relativize(x).toString(), new Date(), new Date(), x.toFile().length())).collect(Collectors.toList());
                     blobStoreFiles.add(result);
                 } catch (IOException e) {
