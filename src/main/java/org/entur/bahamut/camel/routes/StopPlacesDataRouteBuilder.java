@@ -44,7 +44,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
     private int backOffMultiplier;
 
-    @Value("${pelias.update.cron.schedule:0+0/5+*+1/1+*+?+*}")
+    @Value("${pelias.update.cron.schedule:0+0+0+1/1+*+?+*}")
     private String cronSchedule;
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
