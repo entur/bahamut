@@ -5,6 +5,7 @@ data:
     blobstore.gcs.bahamut.bucket.name={{ .Values.gcp.bahamut.bucketName }}
     blobstore.gcs.kakka.bucket.name={{ .Values.gcp.kakka.bucketName }}
     blobstore.gcs.kakka.tiamat.geocoder.file=tiamat/geocoder/tiamat_export_geocoder_latest.zip
+    bahamut.update.cron.schedule=0+0+0+1/1+*+?+*
     spring.profiles.active=gcs-blobstore
     management.endpoints.enabled-by-default=false
     management.endpoint.health.enabled=true
