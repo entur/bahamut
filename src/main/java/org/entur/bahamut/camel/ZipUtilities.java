@@ -11,8 +11,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-import static org.entur.bahamut.camel.routes.StopPlacesDataRouteBuilder.OUTPUT_FILENAME_HEADER;
-import static org.entur.bahamut.camel.routes.StopPlacesDataRouteBuilder.WORK_DIRECTORY_HEADER;
+import static org.entur.bahamut.camel.StopPlacesDataRouteBuilder.OUTPUT_FILENAME_HEADER;
+import static org.entur.bahamut.camel.StopPlacesDataRouteBuilder.WORK_DIRECTORY_HEADER;
 
 public final class ZipUtilities {
 
