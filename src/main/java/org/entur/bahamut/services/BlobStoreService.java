@@ -19,7 +19,7 @@
 package org.entur.bahamut.services;
 
 import org.apache.camel.Header;
-import org.entur.bahamut.repository.BlobStoreRepository;
+import org.entur.bahamut.blobStoreRepository.BlobStoreRepository;
 
 import java.io.InputStream;
 

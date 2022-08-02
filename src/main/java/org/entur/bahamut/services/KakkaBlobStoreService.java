@@ -1,6 +1,6 @@
 package org.entur.bahamut.services;
 
-import org.entur.bahamut.repository.BlobStoreRepository;
+import org.entur.bahamut.blobStoreRepository.BlobStoreRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
