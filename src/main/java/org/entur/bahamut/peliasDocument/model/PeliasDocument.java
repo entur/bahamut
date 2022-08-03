@@ -16,6 +16,7 @@
 
 package org.entur.bahamut.peliasDocument.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.geojson.Polygon;
 import org.slf4j.Logger;
@@ -30,9 +31,6 @@ public class PeliasDocument {
 
     private static final Logger logger = LoggerFactory.getLogger(PeliasDocument.class);
 
-    public static final String DEFAULT_SOURCE = "nsr";
-
-    private final String source;
     private final String layer;
     private final String sourceId;
 
@@ -54,10 +52,9 @@ public class PeliasDocument {
     private List<String> tariffZones = new ArrayList<>();
     private List<String> tariffZoneAuthorities = new ArrayList<>();
 
-    public PeliasDocument(String layer, String sourceId, String source) {
+    public PeliasDocument(String layer, String sourceId) {
         this.layer = Objects.requireNonNull(layer);
         this.sourceId = Objects.requireNonNull(sourceId);
-        this.source = Objects.requireNonNullElse(source, DEFAULT_SOURCE);
     }
 
     public String index() {
@@ -65,7 +62,7 @@ public class PeliasDocument {
     }
 
     public String source() {
-        return source;
+        return "nsr";
     }
 
     public String layer() {
@@ -212,16 +209,8 @@ public class PeliasDocument {
         this.centerPoint = centerPoint;
     }
 
+    @JsonIgnore
     public boolean isValid() {
-        if (layer == null) {
-            logger.warn("Removing invalid document with missing layer:" + this);
-            return false;
-        }
-
-        if (source == null || sourceId == null) {
-            logger.warn("Removing invalid document where pelias document is missing either source or source id:" + this);
-            return false;
-        }
 
         if (centerPoint == null) {
             logger.debug("Removing invalid document where geometry is missing:" + this);
