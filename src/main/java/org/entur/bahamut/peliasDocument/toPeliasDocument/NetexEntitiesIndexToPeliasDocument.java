@@ -1,11 +1,7 @@
-package org.entur.bahamut.peliasDocument;
+package org.entur.bahamut.peliasDocument.toPeliasDocument;
 
 import org.entur.bahamut.peliasDocument.model.PeliasDocument;
-import org.entur.bahamut.peliasDocument.placeHierarchy.StopPlaceHierarchies;
-import org.entur.bahamut.peliasDocument.placeHierarchy.PlaceHierarchy;
-import org.entur.bahamut.peliasDocument.placehierarchiesMapper.StopPlaceBoostConfiguration;
-import org.entur.bahamut.peliasDocument.placehierarchiesMapper.StopPlaceHierarchiesToPeliasDocumentMapper;
-import org.entur.bahamut.peliasDocument.placehierarchiesMapper.TopographicPlaceHierarchiesToPeliasDocumentMapper;
+import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchies;
 import org.entur.netex.index.api.NetexEntitiesIndex;
 
 import java.util.Comparator;
@@ -18,8 +14,8 @@ public class NetexEntitiesIndexToPeliasDocument {
     public static List<PeliasDocument> map(NetexEntitiesIndex netexEntitiesIndex,
                                            StopPlaceBoostConfiguration stopPlaceBoostConfiguration) {
 
-        var stopPlaceToPeliasDocumentMapper = new StopPlaceHierarchiesToPeliasDocumentMapper(stopPlaceBoostConfiguration);
-        var topographicPlaceToPeliasMapper = new TopographicPlaceHierarchiesToPeliasDocumentMapper(1L);
+        var stopPlaceToPeliasDocumentMapper = new StopPlaceHierarchiesToPeliasDocument(stopPlaceBoostConfiguration);
+        var topographicPlaceToPeliasDocument = new TopographicPlaceToPeliasDocument(1L);
 
         var stopPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
@@ -30,7 +26,7 @@ public class NetexEntitiesIndexToPeliasDocument {
 
         var topographicalPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
                 .flatMap(siteFrame -> siteFrame.getTopographicPlaces().getTopographicPlace().stream())
-                .flatMap(topographicPlace -> topographicPlaceToPeliasMapper.toPeliasDocuments(new PlaceHierarchy<>(topographicPlace)).stream())
+                .flatMap(topographicPlace -> topographicPlaceToPeliasDocument.toPeliasDocuments(topographicPlace).stream())
                 .sorted(new NetexEntitiesIndexToPeliasDocument.PeliasDocumentPopularityComparator())
                 .toList();
 

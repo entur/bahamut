@@ -1,4 +1,4 @@
-package org.entur.bahamut.peliasDocument.placeHierarchy;
+package org.entur.bahamut.peliasDocument.stopPlaceHierarchy;
 
 import org.rutebanken.netex.model.StopPlace;
 
@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 
 public class StopPlaceHierarchies {
 
-    public static Set<PlaceHierarchy<StopPlace>> create(List<StopPlace> places) {
+    public static Set<StopPlaceHierarchy> create(List<StopPlace> places) {
         var childStopPlacesByParentRef = places.stream()
                 .filter(sp -> sp.getParentSiteRef() != null)
                 .collect(Collectors.groupingBy(sp -> sp.getParentSiteRef().getRef()));
@@ -17,13 +17,13 @@ public class StopPlaceHierarchies {
                 .map(sp -> createHierarchyForStopPlace(sp, null, childStopPlacesByParentRef))
                 .toList();
 
-        var allStopPlaces = new HashSet<PlaceHierarchy<StopPlace>>();
+        var allStopPlaces = new HashSet<StopPlaceHierarchy>();
         expandStopPlaceHierarchies(stopPlaceHierarchies, allStopPlaces);
         return allStopPlaces;
     }
 
-    private static void expandStopPlaceHierarchies(Collection<PlaceHierarchy<StopPlace>> hierarchies,
-                                                   Set<PlaceHierarchy<StopPlace>> target) {
+    private static void expandStopPlaceHierarchies(Collection<StopPlaceHierarchy> hierarchies,
+                                                   Set<StopPlaceHierarchy> target) {
         if (hierarchies != null) {
             for (var stopPlacePlaceHierarchy : hierarchies) {
                 target.add(stopPlacePlaceHierarchy);
@@ -32,12 +32,12 @@ public class StopPlaceHierarchies {
         }
     }
 
-    private static PlaceHierarchy<StopPlace> createHierarchyForStopPlace(StopPlace stopPlace,
-                                                                         PlaceHierarchy<StopPlace> parent,
-                                                                         Map<String, List<StopPlace>> childrenByParentIdMap) {
+    private static StopPlaceHierarchy createHierarchyForStopPlace(StopPlace stopPlace,
+                                                                  StopPlaceHierarchy parent,
+                                                                  Map<String, List<StopPlace>> childrenByParentIdMap) {
         var children = childrenByParentIdMap.get(stopPlace.getId());
-        List<PlaceHierarchy<StopPlace>> childHierarchies = new ArrayList<>();
-        PlaceHierarchy<StopPlace> hierarchy = new PlaceHierarchy<>(stopPlace, parent);
+        List<StopPlaceHierarchy> childHierarchies = new ArrayList<>();
+        StopPlaceHierarchy hierarchy = new StopPlaceHierarchy(stopPlace, parent);
         if (children != null) {
             childHierarchies = children.stream()
                     .map(child -> createHierarchyForStopPlace(child, hierarchy, childrenByParentIdMap))

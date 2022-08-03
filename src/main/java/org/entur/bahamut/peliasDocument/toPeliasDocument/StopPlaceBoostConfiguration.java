@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.placehierarchiesMapper;
+package org.entur.bahamut.peliasDocument.toPeliasDocument;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -43,10 +43,14 @@ public class StopPlaceBoostConfiguration {
         init(boostConfig);
     }
 
-    public long getPopularity(List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList, InterchangeWeightingEnumeration interchangeWeighting) {
+    public long getPopularity(List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList,
+                              InterchangeWeightingEnumeration interchangeWeighting) {
         long popularity = defaultValue;
 
-        double stopTypeAndSubModeFactor = stopTypeAndSubModeList.stream().collect(Collectors.summarizingDouble(stopTypeAndSubMode -> getStopTypeAndSubModeFactor(stopTypeAndSubMode.getLeft(), stopTypeAndSubMode.getRight()))).getSum();
+        double stopTypeAndSubModeFactor = stopTypeAndSubModeList.stream()
+                .collect(Collectors.summarizingDouble(stopTypeAndSubMode ->
+                        getStopTypeAndSubModeFactor(stopTypeAndSubMode.getLeft(), stopTypeAndSubMode.getRight())))
+                .getSum();
 
         if (stopTypeAndSubModeFactor > 0) {
             popularity *= stopTypeAndSubModeFactor;
@@ -75,7 +79,11 @@ public class StopPlaceBoostConfiguration {
         defaultValue = input.defaultValue;
 
         if (input.interchangeFactors != null) {
-            input.interchangeFactors.forEach((interchangeTypeString, factor) -> interchangeScaleFactorMap.put(InterchangeWeightingEnumeration.fromValue(interchangeTypeString), factor));
+            input.interchangeFactors.forEach((interchangeTypeString, factor) ->
+                    interchangeScaleFactorMap.put(
+                            InterchangeWeightingEnumeration.fromValue(interchangeTypeString),
+                            factor)
+            );
         }
 
         if (input.stopTypeFactors != null) {
@@ -84,12 +92,19 @@ public class StopPlaceBoostConfiguration {
 
                 Map<String, Double> inputFactorsPerSubMode = stopTypeConfig.getValue();
 
-                StopTypeBoostConfig stopTypeBoostConfig = new StopTypeBoostConfig(inputFactorsPerSubMode.getOrDefault(ALL_TYPES, 1.0));
+                StopTypeBoostConfig stopTypeBoostConfig =
+                        new StopTypeBoostConfig(inputFactorsPerSubMode.getOrDefault(ALL_TYPES, 1.0));
                 stopTypeScaleFactorMap.put(stopType, stopTypeBoostConfig);
 
                 inputFactorsPerSubMode.remove(ALL_TYPES);
                 if (inputFactorsPerSubMode != null) {
-                    inputFactorsPerSubMode.forEach((subModeString, factor) -> stopTypeBoostConfig.factorPerSubMode.put(toSubModeEnum(stopType, subModeString), factor));
+                    inputFactorsPerSubMode
+                            .forEach((subModeString, factor) ->
+                                    stopTypeBoostConfig.factorPerSubMode.put(
+                                            toSubModeEnum(stopType, subModeString),
+                                            factor
+                                    )
+                            );
                 }
             }
         }

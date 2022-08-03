@@ -14,44 +14,44 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.placeHierarchy;
+package org.entur.bahamut.peliasDocument.stopPlaceHierarchy;
 
-import org.rutebanken.netex.model.Place_VersionStructure;
+import org.rutebanken.netex.model.StopPlace;
 
 import java.util.*;
 
-public class PlaceHierarchy<T extends Place_VersionStructure> {
+public class StopPlaceHierarchy {
 
-    private final PlaceHierarchy<T> parent;
+    private final StopPlaceHierarchy parent;
 
-    private final T place;
+    private final StopPlace place;
 
-    private Collection<PlaceHierarchy<T>> children;
+    private Collection<StopPlaceHierarchy> children;
 
 
-    public PlaceHierarchy(T place, PlaceHierarchy<T> parent) {
+    public StopPlaceHierarchy(StopPlace place, StopPlaceHierarchy parent) {
         this.place = place;
         this.parent = parent;
     }
 
-    public PlaceHierarchy(T place) {
+    public StopPlaceHierarchy(StopPlace place) {
         this(place, null);
     }
 
 
-    public T getPlace() {
+    public StopPlace getPlace() {
         return place;
     }
 
-    public Collection<PlaceHierarchy<T>> getChildren() {
+    public Collection<StopPlaceHierarchy> getChildren() {
         return children;
     }
 
-    public void setChildren(Collection<PlaceHierarchy<T>> children) {
+    public void setChildren(Collection<StopPlaceHierarchy> children) {
         this.children = children;
     }
 
-    public PlaceHierarchy<T> getParent() {
+    public StopPlaceHierarchy getParent() {
         return parent;
     }
 }
