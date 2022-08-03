@@ -37,7 +37,8 @@ public class ParentInfoEnricher {
         var parent = peliasDocument.parent();
 
         if (parent == null || parent.idFor(Parent.FieldName.LOCALITY).isEmpty()) {
-            logger.debug("Locality is missing doing reverseGeoLookup for :" + peliasDocument.category() + " type: " + peliasDocument.layer());
+            logger.debug("Locality is missing doing reverseGeoLookup for :" +
+                    peliasDocument.category() + " type: " + peliasDocument.layer());
             enrichParentInfoByReverseGeoLookup(adminUnitsCache, peliasDocument);
         }
 

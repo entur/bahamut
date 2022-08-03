@@ -1,12 +1,10 @@
-package org.entur.bahamut.peliasDocument;
+package org.entur.bahamut.peliasDocument.toPeliasDocument;
 
 import org.entur.bahamut.peliasDocument.model.PeliasDocument;
-import org.entur.bahamut.peliasDocument.placeHierarchy.StopPlaceHierarchies;
-import org.entur.bahamut.peliasDocument.placeHierarchy.PlaceHierarchy;
-import org.entur.bahamut.peliasDocument.placehierarchiesMapper.StopPlaceBoostConfiguration;
-import org.entur.bahamut.peliasDocument.placehierarchiesMapper.StopPlaceHierarchiesToPeliasDocumentMapper;
-import org.entur.bahamut.peliasDocument.placehierarchiesMapper.TopographicPlaceHierarchiesToPeliasDocumentMapper;
+import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchies;
 import org.entur.netex.index.api.NetexEntitiesIndex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
 import java.util.List;
@@ -15,31 +13,42 @@ import java.util.stream.Stream;
 
 public class NetexEntitiesIndexToPeliasDocument {
 
+    private static final Logger logger = LoggerFactory.getLogger(NetexEntitiesIndexToPeliasDocument.class);
+
     public static List<PeliasDocument> map(NetexEntitiesIndex netexEntitiesIndex,
                                            StopPlaceBoostConfiguration stopPlaceBoostConfiguration) {
 
-        var stopPlaceToPeliasDocumentMapper = new StopPlaceHierarchiesToPeliasDocumentMapper(stopPlaceBoostConfiguration);
-        var topographicPlaceToPeliasMapper = new TopographicPlaceHierarchiesToPeliasDocumentMapper(1L);
+        var stopPlaceToPeliasDocumentMapper = new StopPlaceHierarchiesToPeliasDocument(stopPlaceBoostConfiguration);
+        var topographicPlaceToPeliasDocument = new TopographicPlaceToPeliasDocument(1L);
 
         var stopPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
                 .flatMap(stopPlaces -> StopPlaceHierarchies.create(stopPlaces).stream())
-                .flatMap(stopPlacePlaceHierarchy -> stopPlaceToPeliasDocumentMapper.toPeliasDocuments(stopPlacePlaceHierarchy).stream())
+                .flatMap(stopPlacePlaceHierarchy ->
+                        stopPlaceToPeliasDocumentMapper.toPeliasDocuments(stopPlacePlaceHierarchy).stream())
                 .sorted(new NetexEntitiesIndexToPeliasDocument.PeliasDocumentPopularityComparator())
                 .toList();
+
+        logger.debug("Number of pelias documents created for stop places {}", stopPlaceDocuments.size());
 
         var topographicalPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
                 .flatMap(siteFrame -> siteFrame.getTopographicPlaces().getTopographicPlace().stream())
-                .flatMap(topographicPlace -> topographicPlaceToPeliasMapper.toPeliasDocuments(new PlaceHierarchy<>(topographicPlace)).stream())
+                .flatMap(topographicPlace ->
+                        topographicPlaceToPeliasDocument.toPeliasDocuments(topographicPlace).stream())
                 .sorted(new NetexEntitiesIndexToPeliasDocument.PeliasDocumentPopularityComparator())
                 .toList();
 
+        logger.debug("Number of pelias documents created for stop places {}", topographicalPlaceDocuments.size());
 
-        return Stream.concat(Stream.of(stopPlaceDocuments), Stream.of(topographicalPlaceDocuments))
+        List<PeliasDocument> validPeliasDocument = Stream.concat(Stream.of(stopPlaceDocuments), Stream.of(topographicalPlaceDocuments))
                 .flatMap(List::stream)
                 .filter(Objects::nonNull)
                 .filter(PeliasDocument::isValid)
                 .toList();
+
+        logger.debug("Number of valid pelias documents created {}", validPeliasDocument.size());
+
+        return validPeliasDocument;
     }
 
     private static class PeliasDocumentPopularityComparator implements Comparator<PeliasDocument> {

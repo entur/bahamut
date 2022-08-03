@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.placehierarchiesMapper;
+package org.entur.bahamut.peliasDocument.toPeliasDocument;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

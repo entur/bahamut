@@ -2,12 +2,12 @@ package org.entur.bahamut.camel;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.entur.bahamut.peliasDocument.NetexEntitiesIndexToPeliasDocument;
+import org.entur.bahamut.peliasDocument.toPeliasDocument.NetexEntitiesIndexToPeliasDocument;
 import org.entur.bahamut.peliasDocument.ParentInfoEnricher;
 import org.entur.bahamut.adminUnitsCache.AdminUnitsCache;
 import org.entur.bahamut.csv.CSVCreator;
 import org.entur.bahamut.peliasDocument.model.PeliasDocument;
-import org.entur.bahamut.peliasDocument.placehierarchiesMapper.StopPlaceBoostConfiguration;
+import org.entur.bahamut.peliasDocument.toPeliasDocument.StopPlaceBoostConfiguration;
 import org.entur.bahamut.services.BahamutBlobStoreService;
 import org.entur.bahamut.services.KakkaBlobStoreService;
 import org.entur.netex.NetexParser;
@@ -119,10 +119,12 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
         var redeliveryMaxCounter = exchange.getIn().getHeader("CamelRedeliveryMaxCounter", Integer.class);
         var camelCaughtThrowable = exchange.getProperty("CamelExceptionCaught", Throwable.class);
 
-        logger.warn("Exchange failed, redelivering the message locally, attempt {}/{}...", redeliveryCounter, redeliveryMaxCounter, camelCaughtThrowable);
+        logger.warn("Exchange failed, redelivering the message locally, attempt {}/{}...",
+                redeliveryCounter, redeliveryMaxCounter, camelCaughtThrowable);
     }
 
     private static void parseNetexFile(Exchange exchange) {
+        logger.debug("Parsing the Netex file.");
         var parser = new NetexParser();
         try (Stream<Path> paths = Files.walk(Paths.get(exchange.getIn().getHeader(WORK_DIRECTORY_HEADER, String.class)))) {
             paths.filter(Files::isRegularFile).findFirst().ifPresent(path -> {
@@ -138,6 +140,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     }
 
     private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
+        logger.debug("Converting netexEntitiesIndex to PeliasDocuments");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
         exchange.getIn().setBody(NetexEntitiesIndexToPeliasDocument.map(netexEntitiesIndex, stopPlaceBoostConfiguration));
     }
@@ -157,6 +160,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     }
 
     private void buildAdminUnitCache(Exchange exchange) {
+        logger.debug("Building admin units cache.");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
         var adminUnitsCache = AdminUnitsCache.buildNewCache(netexEntitiesIndex, cacheMaxSize);
         exchange.setProperty(ADMIN_UNITS_CACHE_PROPERTY, adminUnitsCache);

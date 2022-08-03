@@ -1,7 +1,9 @@
-package org.entur.bahamut.peliasDocument.placehierarchiesMapper;
+package org.entur.bahamut.peliasDocument.toPeliasDocument;
 
 import net.opengis.gml._3.AbstractRingType;
 import net.opengis.gml._3.LinearRingType;
+import org.entur.bahamut.peliasDocument.model.AddressParts;
+import org.entur.bahamut.peliasDocument.model.PeliasDocument;
 import org.geojson.LngLatAlt;
 import org.geojson.Polygon;
 import org.rutebanken.netex.model.GroupOfEntities_VersionStructure;
@@ -18,17 +20,21 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-public class PlaceHierarchiesMapperUtilities {
+public class ToPeliasDocumentUtilities {
+
+    protected static final String DEFAULT_LANGUAGE = "nor";
 
     public static List<MultilingualString> filterUnique(List<MultilingualString> strings) {
         return strings.stream().filter(distinctByKey(MultilingualString::getValue)).collect(Collectors.toList());
     }
 
     public static boolean isValid(GroupOfEntities_VersionStructure object) {
-        return CollectionUtils.isEmpty(object.getValidBetween()) || object.getValidBetween().stream().anyMatch(PlaceHierarchiesMapperUtilities::isValidNow);
+        return CollectionUtils.isEmpty(object.getValidBetween())
+                || object.getValidBetween().stream().anyMatch(ToPeliasDocumentUtilities::isValidNow);
     }
 
-    // Should compare instant with validbetween from/to in timezone defined in PublicationDelivery, but makes little difference in practice
+    // Should compare instant with validbetween from/to in timezone defined in PublicationDelivery,
+    // but makes little difference in practice
     private static boolean isValidNow(ValidBetween validBetween) {
         var now = LocalDateTime.now();
         if (validBetween != null) {
@@ -74,5 +80,18 @@ public class PlaceHierarchiesMapperUtilities {
     protected static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
         Map<Object, Boolean> seen = new ConcurrentHashMap<>();
         return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
+    }
+
+    /**
+     * The Pelias APIs deduper will throw away results with identical name, layer, parent and address.
+     * Setting unique ID in street part of address to avoid unique topographic places with identical
+     * names being deduped.
+     * TODO: DO we need this ???
+     */
+    public static void addIdToStreetNameToAvoidFalseDuplicates(String placeId, PeliasDocument document) {
+        if (document.addressParts() == null) {
+            document.setAddressParts(new AddressParts());
+        }
+        document.addressParts().setStreet("NOT_AN_ADDRESS-" + placeId);
     }
 }
