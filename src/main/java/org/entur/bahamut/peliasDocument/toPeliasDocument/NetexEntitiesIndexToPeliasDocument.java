@@ -24,7 +24,8 @@ public class NetexEntitiesIndexToPeliasDocument {
         var stopPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
                 .flatMap(stopPlaces -> StopPlaceHierarchies.create(stopPlaces).stream())
-                .flatMap(stopPlacePlaceHierarchy -> stopPlaceToPeliasDocumentMapper.toPeliasDocuments(stopPlacePlaceHierarchy).stream())
+                .flatMap(stopPlacePlaceHierarchy ->
+                        stopPlaceToPeliasDocumentMapper.toPeliasDocuments(stopPlacePlaceHierarchy).stream())
                 .sorted(new NetexEntitiesIndexToPeliasDocument.PeliasDocumentPopularityComparator())
                 .toList();
 
@@ -32,7 +33,8 @@ public class NetexEntitiesIndexToPeliasDocument {
 
         var topographicalPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
                 .flatMap(siteFrame -> siteFrame.getTopographicPlaces().getTopographicPlace().stream())
-                .flatMap(topographicPlace -> topographicPlaceToPeliasDocument.toPeliasDocuments(topographicPlace).stream())
+                .flatMap(topographicPlace ->
+                        topographicPlaceToPeliasDocument.toPeliasDocuments(topographicPlace).stream())
                 .sorted(new NetexEntitiesIndexToPeliasDocument.PeliasDocumentPopularityComparator())
                 .toList();
 
