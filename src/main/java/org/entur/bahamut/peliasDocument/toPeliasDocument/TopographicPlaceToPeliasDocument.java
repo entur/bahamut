@@ -37,9 +37,9 @@ public class TopographicPlaceToPeliasDocument {
 
     /**
      * Map single place hierarchy to (potentially) multiple pelias documents, one per alias/alternative name.
-     * <p>
-     * Pelias does not yet support queries in multiple languages / for aliases. When support for this is ready this mapping should be
-     * refactored to produce a single document per place hierarchy.
+     * Pelias does not yet support queries in multiple languages / for aliases.
+     * When support for this is ready this mapping should be refactored to produce a single document per
+     * place hierarchy.
      */
     public List<PeliasDocument> toPeliasDocuments(TopographicPlace place) {
         if (!isValid(place)) {
@@ -61,9 +61,10 @@ public class TopographicPlaceToPeliasDocument {
             document.setDefaultNameAndPhrase(name.getValue());
         }
 
-        // Add official name as display name.
-        // Not a part of standard pelias model, will be copied to name.default before deduping and labelling in Entur-pelias API.
         // TODO: What is this ???
+        // Add official name as display name.
+        // Not a part of standard pelias model, will be copied to name.default before deduping
+        // and labelling in Entur-pelias API.
         var displayName = place.getName();
         if (displayName != null) {
             document.getNameMap().put("display", displayName.getValue());
@@ -74,7 +75,8 @@ public class TopographicPlaceToPeliasDocument {
 
         // TopographicPlaces
         if (place.getCentroid() == null && place.getPolygon() != null) {
-            // TODO issues with shape validation in elasticsearch. duplicate coords + intersections cause document to be discarded. is shape even used by pelias?
+            // TODO issues with shape validation in elasticsearch.
+            // Duplicate coords + intersections cause document to be discarded. is shape even used by pelias?
             document.setShape(
                     ToPeliasDocumentUtilities.toPolygon(
                             place.getPolygon().getExterior().getAbstractRing().getValue())
@@ -105,7 +107,8 @@ public class TopographicPlaceToPeliasDocument {
     }
 
     protected void populateDocument(TopographicPlace place, PeliasDocument document) {
-        if (place.getAlternativeDescriptors() != null && !CollectionUtils.isEmpty(place.getAlternativeDescriptors().getTopographicPlaceDescriptor())) {
+        if (place.getAlternativeDescriptors() != null
+                && !CollectionUtils.isEmpty(place.getAlternativeDescriptors().getTopographicPlaceDescriptor())) {
             place.getAlternativeDescriptors().getTopographicPlaceDescriptor().stream()
                     .filter(descriptor -> descriptor.getName() != null && descriptor.getName().getLang() != null)
                     .forEach(descriptor -> document.addName(descriptor.getName().getLang(), descriptor.getName().getValue()));
@@ -132,8 +135,11 @@ public class TopographicPlaceToPeliasDocument {
             names.add(displayName);
         }
 
-        if (place.getAlternativeDescriptors() != null && !CollectionUtils.isEmpty(place.getAlternativeDescriptors().getTopographicPlaceDescriptor())) {
-            place.getAlternativeDescriptors().getTopographicPlaceDescriptor().stream().filter(an -> an.getName() != null && an.getName().getLang() != null).forEach(n -> names.add(n.getName()));
+        if (place.getAlternativeDescriptors() != null
+                && !CollectionUtils.isEmpty(place.getAlternativeDescriptors().getTopographicPlaceDescriptor())) {
+            place.getAlternativeDescriptors().getTopographicPlaceDescriptor().stream()
+                    .filter(an -> an.getName() != null && an.getName().getLang() != null)
+                    .forEach(n -> names.add(n.getName()));
         }
         return ToPeliasDocumentUtilities.filterUnique(names);
     }

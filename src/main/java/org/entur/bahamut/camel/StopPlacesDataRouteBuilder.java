@@ -124,6 +124,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     }
 
     private static void parseNetexFile(Exchange exchange) {
+        logger.debug("Parsing the Netex file.");
         var parser = new NetexParser();
         try (Stream<Path> paths = Files.walk(Paths.get(exchange.getIn().getHeader(WORK_DIRECTORY_HEADER, String.class)))) {
             paths.filter(Files::isRegularFile).findFirst().ifPresent(path -> {
@@ -139,6 +140,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     }
 
     private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
+        logger.debug("Converting netexEntitiesIndex to PeliasDocuments");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
         exchange.getIn().setBody(NetexEntitiesIndexToPeliasDocument.map(netexEntitiesIndex, stopPlaceBoostConfiguration));
     }
@@ -158,6 +160,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     }
 
     private void buildAdminUnitCache(Exchange exchange) {
+        logger.debug("Building admin units cache.");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
         var adminUnitsCache = AdminUnitsCache.buildNewCache(netexEntitiesIndex, cacheMaxSize);
         exchange.setProperty(ADMIN_UNITS_CACHE_PROPERTY, adminUnitsCache);
