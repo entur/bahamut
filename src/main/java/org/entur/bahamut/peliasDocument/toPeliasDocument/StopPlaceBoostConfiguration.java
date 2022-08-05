@@ -97,15 +97,13 @@ public class StopPlaceBoostConfiguration {
                 stopTypeScaleFactorMap.put(stopType, stopTypeBoostConfig);
 
                 inputFactorsPerSubMode.remove(ALL_TYPES);
-                if (inputFactorsPerSubMode != null) {
-                    inputFactorsPerSubMode
-                            .forEach((subModeString, factor) ->
-                                    stopTypeBoostConfig.factorPerSubMode.put(
-                                            toSubModeEnum(stopType, subModeString),
-                                            factor
-                                    )
-                            );
-                }
+                inputFactorsPerSubMode
+                        .forEach((subModeString, factor) ->
+                                stopTypeBoostConfig.factorPerSubMode.put(
+                                        toSubModeEnum(stopType, subModeString),
+                                        factor
+                                )
+                        );
             }
         }
     }
@@ -122,26 +120,15 @@ public class StopPlaceBoostConfiguration {
     }
 
     private Enum toSubModeEnum(StopTypeEnumeration stopType, String subMode) {
-        switch (stopType) {
-            case AIRPORT:
-                return AirSubmodeEnumeration.fromValue(subMode);
-            case HARBOUR_PORT:
-            case FERRY_STOP:
-            case FERRY_PORT:
-                return WaterSubmodeEnumeration.fromValue(subMode);
-            case BUS_STATION:
-            case COACH_STATION:
-            case ONSTREET_BUS:
-                return BusSubmodeEnumeration.fromValue(subMode);
-            case RAIL_STATION:
-                return RailSubmodeEnumeration.fromValue(subMode);
-            case METRO_STATION:
-                return MetroSubmodeEnumeration.fromValue(subMode);
-            case ONSTREET_TRAM:
-            case TRAM_STATION:
-                return TramSubmodeEnumeration.fromValue(subMode);
-        }
-        return null;
+        return switch (stopType) {
+            case AIRPORT -> AirSubmodeEnumeration.fromValue(subMode);
+            case HARBOUR_PORT, FERRY_STOP, FERRY_PORT -> WaterSubmodeEnumeration.fromValue(subMode);
+            case BUS_STATION, COACH_STATION, ONSTREET_BUS -> BusSubmodeEnumeration.fromValue(subMode);
+            case RAIL_STATION -> RailSubmodeEnumeration.fromValue(subMode);
+            case METRO_STATION -> MetroSubmodeEnumeration.fromValue(subMode);
+            case ONSTREET_TRAM, TRAM_STATION -> TramSubmodeEnumeration.fromValue(subMode);
+            default -> null;
+        };
     }
 
 
@@ -159,6 +146,4 @@ public class StopPlaceBoostConfiguration {
             return factorPerSubMode.getOrDefault(subMode, defaultFactor);
         }
     }
-
-
 }
