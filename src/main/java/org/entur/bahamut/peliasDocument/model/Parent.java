@@ -48,6 +48,9 @@ public class Parent {
         public Field(String id, String name) {
             this(id, name, null, null);
         }
+        public boolean isValid() {
+            return this.id != null && !this.id.isBlank() && this.name != null && !this.name.isBlank();
+        }
     }
 
     public enum FieldName {
