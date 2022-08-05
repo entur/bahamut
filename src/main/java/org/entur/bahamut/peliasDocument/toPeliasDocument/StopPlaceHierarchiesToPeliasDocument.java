@@ -200,7 +200,7 @@ public class StopPlaceHierarchiesToPeliasDocument {
 
         if (place.getTariffZones() != null && place.getTariffZones().getTariffZoneRef() != null) {
             document.setTariffZones(place.getTariffZones().getTariffZoneRef().stream()
-                    .map(zoneRef -> zoneRef.getRef())
+                    .map(VersionOfObjectRefStructure::getRef)
                     .collect(Collectors.toList()));
 
 
