@@ -2,12 +2,12 @@ package org.entur.bahamut.camel;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.entur.bahamut.peliasDocument.toPeliasDocument.NetexEntitiesIndexToPeliasDocument;
 import org.entur.bahamut.peliasDocument.ParentInfoEnricher;
 import org.entur.bahamut.adminUnitsCache.AdminUnitsCache;
 import org.entur.bahamut.csv.CSVCreator;
 import org.entur.bahamut.peliasDocument.model.PeliasDocument;
-import org.entur.bahamut.peliasDocument.toPeliasDocument.StopPlaceBoostConfiguration;
+import org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlaceBoostConfiguration;
+import org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlacesToPeliasDocument;
 import org.entur.bahamut.services.BahamutBlobStoreService;
 import org.entur.bahamut.services.KakkaBlobStoreService;
 import org.entur.netex.NetexParser;
@@ -45,7 +45,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
     private int backOffMultiplier;
 
-    @Value("${bahamut.update.cron.schedule:0+0+0+1/1+*+?+*}")
+    @Value("${bahamut.update.cron.schedule:0+0/3+*+1/1+*+?+*}")
     private String cronSchedule;
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
@@ -142,7 +142,9 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
         logger.debug("Converting netexEntitiesIndex to PeliasDocuments");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
-        exchange.getIn().setBody(NetexEntitiesIndexToPeliasDocument.map(netexEntitiesIndex, stopPlaceBoostConfiguration));
+        exchange.getIn().setBody(
+                StopPlacesToPeliasDocument.toPeliasDocuments(netexEntitiesIndex, stopPlaceBoostConfiguration)
+        );
     }
 
     private static void enrichPeliasDocumentsWithParentInfo(Exchange exchange) {
@@ -155,7 +157,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
         peliasDocuments
                 .forEach(peliasDocument -> {
                     ParentInfoEnricher.enrichParentInfo(adminUnitCache, peliasDocument);
-                    logger.debug("Updated" + index.incrementAndGet() + " / " + peliasDocuments.size() + " command");
+                    logger.debug("Updated " + index.incrementAndGet() + " / " + peliasDocuments.size() + " command");
                 });
     }
 

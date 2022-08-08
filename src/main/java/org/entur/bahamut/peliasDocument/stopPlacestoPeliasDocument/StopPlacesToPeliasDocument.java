@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.toPeliasDocument;
+package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 
 
 import org.apache.commons.lang3.StringUtils;
@@ -22,18 +22,24 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.entur.bahamut.peliasDocument.model.GeoPoint;
 import org.entur.bahamut.peliasDocument.model.PeliasDocument;
+import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchies;
 import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchy;
 import org.entur.bahamut.peliasDocument.model.Parent;
+import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.rutebanken.netex.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.entur.bahamut.peliasDocument.toPeliasDocument.ToPeliasDocumentUtilities.DEFAULT_LANGUAGE;
+import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.ToPeliasDocumentUtilities.DEFAULT_LANGUAGE;
 
-public class StopPlaceHierarchiesToPeliasDocument {
+public class StopPlacesToPeliasDocument {
+
+    private static final Logger logger = LoggerFactory.getLogger(StopPlacesToPeliasDocument.class);
 
     public static final String STOP_PLACE_LAYER = "stop_place";
     public static final String PARENT_STOP_PLACE_LAYER = "stop_place_parent";
@@ -41,14 +47,31 @@ public class StopPlaceHierarchiesToPeliasDocument {
     private static final String KEY_IS_PARENT_STOP_PLACE = "IS_PARENT_STOP_PLACE";
     private final StopPlaceBoostConfiguration boostConfiguration;
 
-    public StopPlaceHierarchiesToPeliasDocument(StopPlaceBoostConfiguration boostConfiguration) {
-        super();
+    public StopPlacesToPeliasDocument(StopPlaceBoostConfiguration boostConfiguration) {
         this.boostConfiguration = boostConfiguration;
+    }
+
+    public static List<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex,
+                                                         StopPlaceBoostConfiguration stopPlaceBoostConfiguration) {
+
+        var stopPlaceToPeliasDocumentMapper = new StopPlacesToPeliasDocument(stopPlaceBoostConfiguration);
+
+        var stopPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
+                .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
+                .flatMap(stopPlaces -> StopPlaceHierarchies.create(stopPlaces).stream())
+                .flatMap(stopPlacePlaceHierarchy ->
+                        stopPlaceToPeliasDocumentMapper.toPeliasDocuments(stopPlacePlaceHierarchy).stream())
+                .sorted((p1, p2) -> -p1.popularity().compareTo(p2.popularity()))
+                .filter(PeliasDocument::isValid)
+                .toList();
+
+        logger.debug("Number of valid pelias documents created for stop places {}", stopPlaceDocuments.size());
+
+        return stopPlaceDocuments;
     }
 
     /**
      * Map single place hierarchy to (potentially) multiple pelias documents, one per alias/alternative name.
-     * * <p>
      * Pelias does not yet support queries in multiple languages / for aliases.
      * When support for this is ready this mapping should be refactored to produce
      * a single document per place hierarchy.
@@ -72,7 +95,7 @@ public class StopPlaceHierarchiesToPeliasDocument {
 
         var document = new PeliasDocument(getLayer(placeHierarchy), place.getId() + idSuffix);
         if (name != null) {
-            document.setDefaultNameAndPhrase(name.getValue());
+            document.addDefaultName(name.getValue());
         }
 
         // Add official name as display name. Not a part of standard pelias model,
@@ -204,8 +227,9 @@ public class StopPlaceHierarchiesToPeliasDocument {
                     .collect(Collectors.toList()));
 
 
-            // A bug in elasticsearch 2.3.4 used for pelias causes prefix queries for array values to fail, thus making it impossible to query by tariff zone prefixes. Instead adding
-            // tariff zone authorities as a distinct indexed name.
+            // A bug in elasticsearch 2.3.4 used for pelias causes prefix queries for array values to fail,
+            // thus making it impossible to query by tariff zone prefixes.
+            // Instead, adding tariff zone authorities as a distinct indexed name.
             document.setTariffZoneAuthorities(place.getTariffZones().getTariffZoneRef().stream()
                     .map(zoneRef -> zoneRef.getRef().split(":")[0]).distinct()
                     .collect(Collectors.toList()));
@@ -253,7 +277,6 @@ public class StopPlaceHierarchiesToPeliasDocument {
      * Non-multimodal stops with default layer
      *
      * @param hierarchy
-     * @return
      */
     private String getLayer(StopPlaceHierarchy hierarchy) {
         if (hierarchy.getParent() != null) {

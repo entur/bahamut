@@ -1,18 +1,13 @@
-package org.entur.bahamut.peliasDocument.toPeliasDocument;
+package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 
-import net.opengis.gml._3.AbstractRingType;
-import net.opengis.gml._3.LinearRingType;
 import org.entur.bahamut.peliasDocument.model.AddressParts;
 import org.entur.bahamut.peliasDocument.model.PeliasDocument;
-import org.geojson.LngLatAlt;
-import org.geojson.Polygon;
 import org.rutebanken.netex.model.GroupOfEntities_VersionStructure;
 import org.rutebanken.netex.model.MultilingualString;
 import org.rutebanken.netex.model.ValidBetween;
 import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +28,7 @@ public class ToPeliasDocumentUtilities {
                 || object.getValidBetween().stream().anyMatch(ToPeliasDocumentUtilities::isValidNow);
     }
 
-    // Should compare instant with validbetween from/to in timezone defined in PublicationDelivery,
+    // Should compare instant with valid between from/to in timezone defined in PublicationDelivery,
     // but makes little difference in practice
     private static boolean isValidNow(ValidBetween validBetween) {
         var now = LocalDateTime.now();
@@ -47,45 +42,15 @@ public class ToPeliasDocumentUtilities {
         return true;
     }
 
-    public static Polygon toPolygon(AbstractRingType ring) {
-
-        if (ring instanceof LinearRingType linearRing) {
-
-            var coordinates = new ArrayList<LngLatAlt>();
-            LngLatAlt coordinate = null;
-            LngLatAlt prevCoordinate = null;
-            for (Double val : linearRing.getPosList().getValue()) {
-                if (coordinate == null) {
-                    coordinate = new LngLatAlt();
-                    coordinate.setLatitude(val);
-                } else {
-                    coordinate.setLongitude(val);
-                    if (prevCoordinate == null || !equals(coordinate, prevCoordinate)) {
-                        coordinates.add(coordinate);
-                    }
-                    prevCoordinate = coordinate;
-                    coordinate = null;
-                }
-            }
-            return new Polygon(coordinates);
-
-        }
-        return null;
-    }
-
-    private static boolean equals(LngLatAlt coordinate, LngLatAlt other) {
-        return other.getLatitude() == coordinate.getLatitude() && other.getLongitude() == coordinate.getLongitude();
-    }
-
     protected static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
         Map<Object, Boolean> seen = new ConcurrentHashMap<>();
         return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
     }
 
     /**
-     * The Pelias APIs deduper will throw away results with identical name, layer, parent and address.
+     * The Pelias APIs de-duper will throw away results with identical name, layer, parent and address.
      * Setting unique ID in street part of address to avoid unique topographic places with identical
-     * names being deduped.
+     * names being de-duped.
      * TODO: DO we need this ???
      */
     public static void addIdToStreetNameToAvoidFalseDuplicates(String placeId, PeliasDocument document) {
