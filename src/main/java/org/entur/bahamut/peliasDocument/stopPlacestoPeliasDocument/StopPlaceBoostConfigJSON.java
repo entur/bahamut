@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.toPeliasDocument;
+package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

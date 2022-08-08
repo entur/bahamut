@@ -56,21 +56,29 @@ public class ParentInfoEnricher {
 
         parent.idFor(Parent.FieldName.LOCALITY).ifPresent(localityId -> {
             if (parent.nameFor(Parent.FieldName.LOCALITY).isEmpty()) {
-                logger.debug("1. Locality is missing get locality name by id: " + localityId + " type: " + peliasDocument.layer());
+                logger.debug("Locality is missing get locality name by id: " +
+                        localityId + " type: " + peliasDocument.layer());
                 var adminUnitLocality = adminUnitsCache.getLocalityForId(localityId);
                 if (adminUnitLocality != null) {
                     parent.setNameFor(Parent.FieldName.LOCALITY, adminUnitLocality.name());
-                    parent.addOrReplaceParentField(Parent.FieldName.COUNTY, new Parent.Field(adminUnitLocality.parentId(), null)); // TODO
-                    parent.addOrReplaceParentField(Parent.FieldName.COUNTRY, new Parent.Field(adminUnitLocality.getISO3CountryName(), adminUnitLocality.countryRef())); // TODO no country name in netex file.
+                    parent.addOrReplaceParentField(
+                            Parent.FieldName.COUNTY,
+                            new Parent.Field(adminUnitLocality.parentId(), null)
+                    ); // TODO
+                    parent.addOrReplaceParentField(
+                            Parent.FieldName.COUNTRY,
+                            new Parent.Field(adminUnitLocality.getISO3CountryName(), adminUnitLocality.countryRef())
+                    ); // TODO no country name in netex file.
                 } else {
                     // Locality id on document does not match any known locality, match on geography instead
-                    logger.debug("Locality is missing doing reverseGeoLookup for :" + peliasDocument.category() + " type: " + peliasDocument.layer());
+                    logger.debug("Locality is missing doing reverseGeoLookup for :" +
+                            peliasDocument.category() + " type: " + peliasDocument.layer());
                     enrichParentInfoByReverseGeoLookup(adminUnitsCache, peliasDocument);
 
-                    logger.debug("2. Locality is still missing ,doing Reverse lookup again:  " + localityId);
+                    logger.debug("Locality is still missing ,doing Reverse lookup again:  " + localityId);
                     enrichParentInfoByReverseGeoLookup(adminUnitsCache, peliasDocument);
 
-                    logger.debug("3. Once again setLocality by Id : " + localityId);
+                    logger.debug("Once again setLocality by Id : " + localityId);
                     var adminUnitName = adminUnitsCache.getAdminUnitNameForId(localityId);
 
                     parent.setNameFor(Parent.FieldName.LOCALITY, adminUnitName);
