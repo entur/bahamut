@@ -10,11 +10,16 @@ import org.rutebanken.netex.model.TopographicPlace;
 import org.rutebanken.netex.model.ValidBetween;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public record AdminUnitsCache(Cache<String, String> adminUnitNamesCache,
-                              List<AdminUnit> localities,
-                              List<AdminUnit> countries,
+                              Map<String, AdminUnit> countries,
+                              Map<String, AdminUnit> counties,
+                              Map<String, AdminUnit> localities,
                               List<GroupOfStopPlaces> groupOfStopPlaces) {
 
     public static AdminUnitsCache buildNewCache(NetexEntitiesIndex netexEntitiesIndex, Integer cacheMaxSize) {
@@ -35,19 +40,22 @@ public record AdminUnitsCache(Cache<String, String> adminUnitNamesCache,
                 .toList();
 
         var localities = allAdminUnits.stream()
-                .filter(adminUnit -> adminUnit.adminUnitType() == AdminUnitType.LOCALITY).toList();
+                .filter(adminUnit -> adminUnit.adminUnitType() == AdminUnitType.LOCALITY)
+                .collect(Collectors.toMap(AdminUnit::id, Function.identity()));
+
+        var counties = allAdminUnits.stream()
+                .filter(adminUnit -> adminUnit.adminUnitType() == AdminUnitType.COUNTY)
+                .collect(Collectors.toMap(AdminUnit::id, Function.identity()));
 
         var countries = allAdminUnits.stream()
                 .filter(adminUnit -> adminUnit.adminUnitType() == AdminUnitType.COUNTRY)
                 .filter(adminUnit -> !adminUnit.countryRef().equals(IanaCountryTldEnumeration.RU.name()))
-                .toList();
+                .collect(Collectors.toMap(AdminUnit::id, Function.identity()));
 
-        Cache<String, String> idCache = CacheBuilder.newBuilder().maximumSize(cacheMaxSize).build();
-        allAdminUnits.stream()
-                .filter(adminUnit -> adminUnit.adminUnitType() == AdminUnitType.LOCALITY || adminUnit.adminUnitType() == AdminUnitType.COUNTY)
-                .forEach(adminUnit -> idCache.put(adminUnit.id(), adminUnit.name()));
+        Cache<String, String> adminUnitNamesCache = CacheBuilder.newBuilder().maximumSize(cacheMaxSize).build();
+        allAdminUnits.forEach(adminUnit -> adminUnitNamesCache.put(adminUnit.id(), adminUnit.name()));
 
-        return new AdminUnitsCache(idCache, localities, countries, groupOfStopPlaces);
+        return new AdminUnitsCache(adminUnitNamesCache, countries, counties, localities, groupOfStopPlaces);
     }
 
     private static boolean isCurrent(TopographicPlace topographicPlace) {
@@ -70,26 +78,29 @@ public record AdminUnitsCache(Cache<String, String> adminUnitNamesCache,
         return adminUnitNamesCache.getIfPresent(id);
     }
 
-    public AdminUnit getLocalityForId(String id) {
-        return localities.stream()
-                .filter(adminUnit -> adminUnit.id() != null)
-                .filter(adminUnit -> adminUnit.id().equals(id))
+    public AdminUnit getCountryForCountryRef(String countryRef) {
+        return countries.values().stream()
+                .filter(country -> country.countryRef() != null)
+                .filter(adminUnit -> adminUnit.countryRef().equals(countryRef))
                 .findFirst().orElse(null);
     }
 
     public AdminUnit getLocalityForPoint(Point point) {
-        return getAdminUnitForGivenPoint(point, localities);
+        return getAdminUnitForGivenPoint(point, localities.values());
+    }
+
+    public AdminUnit getCountyForPoint(Point point) {
+        return getAdminUnitForGivenPoint(point, counties.values());
     }
 
     public AdminUnit getCountryForPoint(Point point) {
-        return getAdminUnitForGivenPoint(point, countries);
+        return getAdminUnitForGivenPoint(point, countries.values());
     }
 
-    private static AdminUnit getAdminUnitForGivenPoint(Point point, List<AdminUnit> topographicPlaces) {
+    private static AdminUnit getAdminUnitForGivenPoint(Point point, Collection<AdminUnit> topographicPlaces) {
         if (topographicPlaces == null) {
             return null;
         }
-
         for (var topographicPlace : topographicPlaces) {
             var polygon = topographicPlace.geometry();
             if (polygon != null && polygon.covers(point)) {

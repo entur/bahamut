@@ -17,7 +17,10 @@
 package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import java.io.IOException;
 import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -28,4 +31,14 @@ public class StopPlaceBoostConfigJSON {
     public Map<String, Double> interchangeFactors;
 
     public Map<String, Map<String, Double>> stopTypeFactors;
+
+    public static StopPlaceBoostConfigJSON fromString(String string) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            return mapper.readValue(string, StopPlaceBoostConfigJSON.class);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
