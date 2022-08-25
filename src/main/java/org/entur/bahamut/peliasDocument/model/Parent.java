@@ -38,7 +38,7 @@ public class Parent {
     }
 
     public void setNameFor(FieldName fieldName, String name) {
-        fields.computeIfPresent(fieldName, (fldName, field) -> new Field(field.id(), name, field.abbreviation()));
+        fields.computeIfPresent(fieldName, (fldName, field) -> new Field(field.id(), name, field.abbr()));
     }
 
     public Optional<String> idFor(Parent.FieldName fieldName) {
@@ -53,14 +53,14 @@ public class Parent {
         return fields;
     }
 
-    public record Field(String id, String name, String abbreviation, String source) {
+    public record Field(String id, String name, String abbr, String source) {
 
         public Field(String id, String name) {
             this(id, name, null, DEFAULT_SOURCE);
         }
 
-        public Field(String id, String name, String abbreviation) {
-            this(id, name, abbreviation, DEFAULT_SOURCE);
+        public Field(String id, String name, String abbr) {
+            this(id, name, abbr, DEFAULT_SOURCE);
         }
 
         @JsonIgnore

@@ -178,7 +178,7 @@ public class StopPlacesToPeliasDocument {
     private static void setParent(PeliasDocument document, StopPlace place, AdminUnitsCache adminUnitsCache) {
         if (place.getTopographicPlaceRef() != null) {
             document.setParent(
-                    ParentCreator.createParentForTopographicPlaceRef(
+                    Parents.createParentForTopographicPlaceRef(
                             place.getTopographicPlaceRef().getRef(),
                             document.centerPoint(),
                             adminUnitsCache
