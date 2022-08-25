@@ -16,15 +16,12 @@
 
 package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.commons.lang3.tuple.Pair;
 import org.rutebanken.netex.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,13 +31,53 @@ import java.util.stream.Collectors;
 public class StopPlaceBoostConfiguration {
 
     private static final String ALL_TYPES = "*";
-    private final Map<StopTypeEnumeration, StopTypeBoostConfig> stopTypeScaleFactorMap = new HashMap<>();
-    private final Map<InterchangeWeightingEnumeration, Double> interchangeScaleFactorMap = new HashMap<>();
-    private long defaultValue;
+    private final Map<StopTypeEnumeration, StopTypeBoostConfig> stopTypeFactorMap = new HashMap<>();
+    private final Map<InterchangeWeightingEnumeration, Double> interchangeFactorMap = new HashMap<>();
+    private final long defaultValue;
 
     @Autowired
     public StopPlaceBoostConfiguration(@Value("${pelias.stop.place.boost.config:{\"defaultValue\":1000}}") String boostConfig) {
-        init(boostConfig);
+
+        StopPlaceBoostConfigJSON input = StopPlaceBoostConfigJSON.fromString(boostConfig);
+
+        this.defaultValue = input.defaultValue;
+
+        if (input.interchangeFactors != null) {
+            initiateInterchangeFactors(input.interchangeFactors);
+        }
+
+        if (input.stopTypeFactors != null) {
+            initiateStopTypeFactors(input.stopTypeFactors);
+        }
+    }
+
+    private void initiateInterchangeFactors(Map<String, Double> interchangeFactors) {
+        interchangeFactors.forEach((interchangeType, factor) ->
+                interchangeFactorMap.put(
+                        InterchangeWeightingEnumeration.fromValue(interchangeType),
+                        factor)
+        );
+    }
+
+    private void initiateStopTypeFactors(Map<String, Map<String, Double>> stopTypeFactors) {
+        for (Map.Entry<String, Map<String, Double>> stopTypeConfig : stopTypeFactors.entrySet()) {
+
+            StopTypeEnumeration stopType = StopTypeEnumeration.fromValue(stopTypeConfig.getKey());
+            Map<String, Double> inputFactorsPerSubMode = stopTypeConfig.getValue();
+
+            StopTypeBoostConfig stopTypeBoostConfig =
+                    new StopTypeBoostConfig(inputFactorsPerSubMode.getOrDefault(ALL_TYPES, 1.0));
+            stopTypeFactorMap.put(stopType, stopTypeBoostConfig);
+
+            inputFactorsPerSubMode.remove(ALL_TYPES);
+            inputFactorsPerSubMode
+                    .forEach((subModeString, factor) ->
+                            stopTypeBoostConfig.factorPerSubMode().put(
+                                    toSubModeEnum(stopType, subModeString),
+                                    factor
+                            )
+                    );
+        }
     }
 
     public long getPopularity(List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList,
@@ -56,7 +93,7 @@ public class StopPlaceBoostConfiguration {
             popularity *= stopTypeAndSubModeFactor;
         }
 
-        Double interchangeFactor = interchangeScaleFactorMap.get(interchangeWeighting);
+        Double interchangeFactor = interchangeFactorMap.get(interchangeWeighting);
         if (interchangeFactor != null) {
             popularity *= interchangeFactor;
         }
@@ -65,58 +102,11 @@ public class StopPlaceBoostConfiguration {
     }
 
     private double getStopTypeAndSubModeFactor(StopTypeEnumeration stopType, Enum subMode) {
-        StopTypeBoostConfig factorsPerSubMode = stopTypeScaleFactorMap.get(stopType);
+        StopTypeBoostConfig factorsPerSubMode = stopTypeFactorMap.get(stopType);
         if (factorsPerSubMode != null) {
             return factorsPerSubMode.getFactorForSubMode(subMode);
         }
         return 0;
-    }
-
-
-    private void init(String boostConfig) {
-        StopPlaceBoostConfigJSON input = fromString(boostConfig);
-
-        defaultValue = input.defaultValue;
-
-        if (input.interchangeFactors != null) {
-            input.interchangeFactors.forEach((interchangeTypeString, factor) ->
-                    interchangeScaleFactorMap.put(
-                            InterchangeWeightingEnumeration.fromValue(interchangeTypeString),
-                            factor)
-            );
-        }
-
-        if (input.stopTypeFactors != null) {
-            for (Map.Entry<String, Map<String, Double>> stopTypeConfig : input.stopTypeFactors.entrySet()) {
-                StopTypeEnumeration stopType = StopTypeEnumeration.fromValue(stopTypeConfig.getKey());
-
-                Map<String, Double> inputFactorsPerSubMode = stopTypeConfig.getValue();
-
-                StopTypeBoostConfig stopTypeBoostConfig =
-                        new StopTypeBoostConfig(inputFactorsPerSubMode.getOrDefault(ALL_TYPES, 1.0));
-                stopTypeScaleFactorMap.put(stopType, stopTypeBoostConfig);
-
-                inputFactorsPerSubMode.remove(ALL_TYPES);
-                inputFactorsPerSubMode
-                        .forEach((subModeString, factor) ->
-                                stopTypeBoostConfig.factorPerSubMode.put(
-                                        toSubModeEnum(stopType, subModeString),
-                                        factor
-                                )
-                        );
-            }
-        }
-    }
-
-
-    private StopPlaceBoostConfigJSON fromString(String string) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new JavaTimeModule());
-            return mapper.readValue(string, StopPlaceBoostConfigJSON.class);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private Enum toSubModeEnum(StopTypeEnumeration stopType, String subMode) {
@@ -131,15 +121,12 @@ public class StopPlaceBoostConfiguration {
         };
     }
 
-
-    private static class StopTypeBoostConfig {
-
-        public double defaultFactor = 1;
-
-        public Map<Enum, Double> factorPerSubMode = new HashMap<>();
-
+    private record StopTypeBoostConfig(
+            double defaultFactor,
+            Map<Enum, Double> factorPerSubMode
+    ) {
         public StopTypeBoostConfig(double defaultFactor) {
-            this.defaultFactor = defaultFactor;
+            this(defaultFactor, new HashMap<>());
         }
 
         public Double getFactorForSubMode(Enum subMode) {

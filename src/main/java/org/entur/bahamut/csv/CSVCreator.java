@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.entur.bahamut.csv.CSVHeaders.*;
+import static org.entur.bahamut.peliasDocument.model.PeliasDocument.DEFAULT_INDEX;
+import static org.entur.bahamut.peliasDocument.model.PeliasDocument.DEFAULT_SOURCE;
 
 public final class CSVCreator {
 
@@ -61,11 +63,20 @@ public final class CSVCreator {
     private static HashMap<String, CSVValue> createCSVDocument(PeliasDocument peliasDocument, Consumer<String> addNewHeader) {
         var map = new HashMap<String, CSVValue>();
         map.put(ID, CSVValue(peliasDocument.sourceId()));
-        map.put(INDEX, CSVValue(peliasDocument.index()));
+        map.put(INDEX, CSVValue(DEFAULT_INDEX));
         map.put(TYPE, CSVValue(peliasDocument.layer()));
+        map.put(SOURCE, CSVValue(DEFAULT_SOURCE));
+        map.put(SOURCE_ID, CSVValue(peliasDocument.sourceId()));
+        map.put(LAYER, CSVValue(peliasDocument.layer()));
+        map.put(POPULARITY, CSVValue(peliasDocument.popularity()));
+        map.put(CATEGORY, CSVJsonValue(peliasDocument.category()));
+        map.put(DESCRIPTION, CSVJsonValue(peliasDocument.descriptionMap()));
+        if (peliasDocument.parent() != null) {
+            map.put(PARENT, CSVJsonValue(wrapParentFieldsInLists(peliasDocument.parent().getParentFields())));
+        }
 
         map.put(NAME, CSVValue(peliasDocument.defaultName()));
-        peliasDocument.getNameMap().entrySet().stream()
+        peliasDocument.namesEntrySet().stream()
                 .filter(entry -> !entry.getKey().equals("default"))
                 .forEach(entry -> {
                     String header = NAME + "_" + entry.getKey();
@@ -93,15 +104,6 @@ public final class CSVCreator {
             map.put(ADDRESS_NUMBER, CSVValue(peliasDocument.addressParts().getNumber()));
             map.put(ADDRESS_ZIP, CSVValue(peliasDocument.addressParts().getZip()));
         }
-        map.put(POPULARITY, CSVValue(peliasDocument.popularity()));
-        map.put(CATEGORY, CSVJsonValue(peliasDocument.category()));
-        map.put(DESCRIPTION, CSVJsonValue(peliasDocument.descriptionMap()));
-        map.put(SOURCE, CSVValue(peliasDocument.source()));
-        map.put(SOURCE_ID, CSVValue(peliasDocument.sourceId()));
-        map.put(LAYER, CSVValue(peliasDocument.layer()));
-        if (peliasDocument.parent() != null) {
-            map.put(PARENT, CSVJsonValue(wrapParentFieldsInLists(peliasDocument.parent().getParentFields())));
-        }
 
         return map;
     }
@@ -112,6 +114,11 @@ public final class CSVCreator {
      * https://github.com/pelias/csv-importer/pull/97#issuecomment-1203920795
      */
     private static Map<Parent.FieldName, List<Parent.Field>> wrapParentFieldsInLists(Map<Parent.FieldName, Parent.Field> parentFields) {
+
+        List<Map.Entry<Parent.FieldName, Parent.Field>> collect = parentFields.entrySet()
+                .stream()
+                .filter(entry -> !entry.getValue().isValid()).collect(Collectors.toList());
+
         return parentFields.entrySet()
                 .stream()
                 // TODO: Some of the localities have no name. Which is not acceptable by the pelias model. Id and name are mandatory field.

@@ -16,20 +16,29 @@
 
 package org.entur.bahamut.peliasDocument.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.*;
 
+import static org.entur.bahamut.peliasDocument.model.PeliasDocument.DEFAULT_SOURCE;
+
 public class Parent {
 
     private final Map<FieldName, Field> fields = new HashMap<>();
+
+    public static Parent initParentWithField(FieldName fieldName, Field field) {
+        Parent parent = new Parent();
+        parent.addOrReplaceParentField(fieldName, field);
+        return parent;
+    }
 
     public void addOrReplaceParentField(FieldName fieldName, Field field) {
         fields.compute(fieldName, (fldName, fld) -> field);
     }
 
     public void setNameFor(FieldName fieldName, String name) {
-        fields.computeIfPresent(fieldName, (fldName, field) -> new Field(field.id(), name, field.abbreviation(), field.source()));
+        fields.computeIfPresent(fieldName, (fldName, field) -> new Field(field.id(), name, field.abbreviation()));
     }
 
     public Optional<String> idFor(Parent.FieldName fieldName) {
@@ -45,9 +54,16 @@ public class Parent {
     }
 
     public record Field(String id, String name, String abbreviation, String source) {
+
         public Field(String id, String name) {
-            this(id, name, null, null);
+            this(id, name, null, DEFAULT_SOURCE);
         }
+
+        public Field(String id, String name, String abbreviation) {
+            this(id, name, abbreviation, DEFAULT_SOURCE);
+        }
+
+        @JsonIgnore
         public boolean isValid() {
             return this.id != null && !this.id.isBlank() && this.name != null && !this.name.isBlank();
         }

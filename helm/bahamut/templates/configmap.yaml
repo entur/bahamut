@@ -14,6 +14,7 @@ data:
     management.endpoint.health.group.readiness.include=readinessState
     management.endpoints.web.exposure.include=health
     management.endpoints.jmx.exposure.exclude=*
+    pelias.stop.place.boost.config={"defaultValue":30, "stopTypeFactors":{"busStation":{"*":2},"metroStation":{"*":2},"railStation":{"*":2}}}
 metadata:
   name: {{ template "bahamut.name" . }}-config
   namespace: {{ .Release.Namespace }}
