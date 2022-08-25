@@ -23,63 +23,60 @@ import org.entur.bahamut.peliasDocument.model.Parent;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 
-public class ParentCreator {
+public class Parents {
 
-    public static Parent createParentForTopographicPlaceRef(String topographicPlaceRef, GeoPoint centerPoint, AdminUnitsCache adminUnitsCache) {
+    public static Parent createParentsForTopographicPlaceRef(String topographicPlaceRef,
+                                                             GeoPoint centerPoint,
+                                                             AdminUnitsCache adminUnitsCache) {
         if (topographicPlaceRef != null) {
 
             // Try getting parent info for locality by id.
             var locality = adminUnitsCache.localities().get(topographicPlaceRef);
             if (locality != null) {
-                return createParentForLocality(locality, adminUnitsCache);
+                return createParentsForLocality(locality, adminUnitsCache);
             }
 
             // Try getting parent info for locality by reverse geocoding.
-            locality = createParentByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.LOCALITY);
+            locality = createParentsByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.LOCALITY);
             if (locality != null) {
-                return createParentForLocality(locality, adminUnitsCache);
+                return createParentsForLocality(locality, adminUnitsCache);
             }
 
             // Try getting parent info for county by id.
             var county = adminUnitsCache.counties().get(topographicPlaceRef);
             if (county != null) {
-                return createParentForCounty(county, adminUnitsCache);
+                return createParentsForCounty(county, adminUnitsCache);
             }
 
             // Try getting parent info for county by reverse geocoding.
-            county = createParentByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTY);
+            county = createParentsByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTY);
             if (county != null) {
-                return createParentForCounty(county, adminUnitsCache);
+                return createParentsForCounty(county, adminUnitsCache);
             }
-
 
             // Try getting parent info for country by id.
             var country = adminUnitsCache.countries().get(topographicPlaceRef);
             if (country != null) {
-                // TODO: Remove this when Assad adds Norway as TopographicPlace i NSR netex file.
-                if (country.countryRef().equals("no")) {
-                    return createParentForNorway();
-                }
                 return createParentForCountry(country);
             }
 
             // Try getting parent info for country by reverse geocoding.
-            country = createParentByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTRY);
+            country = createParentsByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTRY);
             if (country != null) {
                 return createParentForCountry(country);
             }
         } else {
-            var locality = createParentByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.LOCALITY);
+            var locality = createParentsByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.LOCALITY);
             if (locality != null) {
-                return createParentForLocality(locality, adminUnitsCache);
+                return createParentsForLocality(locality, adminUnitsCache);
             }
 
-            var county = createParentByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTY);
+            var county = createParentsByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTY);
             if (county != null) {
-                return createParentForCounty(county, adminUnitsCache);
+                return createParentsForCounty(county, adminUnitsCache);
             }
 
-            var country = createParentByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTRY);
+            var country = createParentsByReverseGeocoding(centerPoint, adminUnitsCache, Parent.FieldName.COUNTRY);
             if (country != null) {
                 return createParentForCountry(country);
             }
@@ -87,7 +84,7 @@ public class ParentCreator {
         return null;
     }
 
-    private static Parent createParentForLocality(AdminUnit locality, AdminUnitsCache adminUnitsCache) {
+    private static Parent createParentsForLocality(AdminUnit locality, AdminUnitsCache adminUnitsCache) {
         var parent = Parent.initParentWithField(
                 Parent.FieldName.LOCALITY,
                 new Parent.Field(locality.id(), locality.name())
@@ -107,11 +104,18 @@ public class ParentCreator {
                     Parent.FieldName.COUNTRY,
                     new Parent.Field(countryForLocality.id(), countryForLocality.name(), countryForLocality.getISO3CountryName())
             );
+        } else if (locality.countryRef().equalsIgnoreCase("no")) {
+            // TODO: Remove this when Assad adds Norway as TopographicPlace i NSR netex file.
+            parent.addOrReplaceParentField(
+                    Parent.FieldName.COUNTRY,
+                    new Parent.Field("FAKE-ID", "Norway", "NOR")
+            );
         }
+
         return parent;
     }
 
-    private static Parent createParentForCounty(AdminUnit county, AdminUnitsCache adminUnitsCache) {
+    private static Parent createParentsForCounty(AdminUnit county, AdminUnitsCache adminUnitsCache) {
         var parent = Parent.initParentWithField(
                 Parent.FieldName.COUNTY,
                 new Parent.Field(county.id(), county.name())
@@ -134,16 +138,9 @@ public class ParentCreator {
         );
     }
 
-    private static Parent createParentForNorway() {
-        return Parent.initParentWithField(
-                Parent.FieldName.COUNTRY,
-                new Parent.Field("FAKE-ID", "Norway", "NOR")
-        );
-    }
-
-    private static AdminUnit createParentByReverseGeocoding(GeoPoint centerPoint,
-                                                            AdminUnitsCache adminUnitsCache,
-                                                            Parent.FieldName parentField) {
+    private static AdminUnit createParentsByReverseGeocoding(GeoPoint centerPoint,
+                                                             AdminUnitsCache adminUnitsCache,
+                                                             Parent.FieldName parentField) {
         var geometryFactory = new GeometryFactory();
         var point = geometryFactory.createPoint(new Coordinate(centerPoint.lon(), centerPoint.lat()));
 

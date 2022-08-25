@@ -41,7 +41,7 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
     private int backOffMultiplier;
 
-    @Value("${bahamut.update.cron.schedule:0+0/10+*+1/1+*+?+*}")
+    @Value("${bahamut.update.cron.schedule:0+0+0+1/1+*+?+*}")
     private String cronSchedule;
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
@@ -87,9 +87,6 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .setHeader(WORK_DIRECTORY_HEADER, constant(bahamutWorkDir))
                 .process(ZipUtilities::unzipFile)
                 .process(StopPlacesDataRouteBuilder::parseNetexFile)
-                .process(exchange -> {
-                    Message in = exchange.getIn();
-                })
                 .process(this::buildAdminUnitCache)
                 .process(this::netexEntitiesIndexToPeliasDocument)
                 .bean(new CSVCreator())
