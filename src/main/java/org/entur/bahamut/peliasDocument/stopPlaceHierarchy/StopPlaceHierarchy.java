@@ -23,9 +23,7 @@ import java.util.*;
 public class StopPlaceHierarchy {
 
     private final StopPlaceHierarchy parent;
-
     private final StopPlace place;
-
     private Collection<StopPlaceHierarchy> children;
 
 

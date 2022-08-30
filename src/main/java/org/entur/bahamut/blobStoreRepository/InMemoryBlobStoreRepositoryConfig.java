@@ -16,7 +16,7 @@
  *
  */
 
-package org.entur.bahamut;
+package org.entur.bahamut.blobStoreRepository;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

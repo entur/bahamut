@@ -17,17 +17,16 @@
 package org.entur.bahamut.peliasDocument.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.StringWriter;
 import java.util.*;
 
 public class PeliasDocument {
 
     private static final Logger logger = LoggerFactory.getLogger(PeliasDocument.class);
+    public static final String DEFAULT_INDEX = "pelias";
+    public static final String DEFAULT_SOURCE = "nsr";
 
     private final String layer;
     private final String sourceId;
@@ -50,20 +49,12 @@ public class PeliasDocument {
         this.sourceId = Objects.requireNonNull(sourceId);
     }
 
-    public String index() {
-        return "pelias";
-    }
-
-    public String source() {
-        return "nsr";
-    }
-
     public String layer() {
         return layer;
     }
 
-    public Map<String, String> getNameMap() {
-        return nameMap;
+    public Set<Map.Entry<String, String>> namesEntrySet() {
+        return nameMap.entrySet();
     }
 
     public String defaultName() {
@@ -71,11 +62,15 @@ public class PeliasDocument {
     }
 
     public void addName(String language, String name) {
-        nameMap.put(language, name);
+        nameMap.put(IsoLanguageCodeMap.getLanguage(language), name);
     }
 
     public void addDefaultName(String name) {
-        addName("default", name);
+        nameMap.put("default", name);
+    }
+
+    public void addDisplayName(String name) {
+        nameMap.put("display", name);
     }
 
     public void addDescription(String language, String description) {
@@ -87,7 +82,11 @@ public class PeliasDocument {
     }
 
     public void addAlias(String language, String alias) {
-        aliasMap.put(language, alias);
+        aliasMap.put(IsoLanguageCodeMap.getLanguage(language), alias);
+    }
+
+    public void addDefaultAlias(String alias) {
+        aliasMap.put("default", alias);
     }
 
     public Map<String, String> aliasMap() {
@@ -166,16 +165,5 @@ public class PeliasDocument {
             return false;
         }
         return true;
-    }
-
-    public String toString() {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            StringWriter writer = new StringWriter();
-            mapper.writeValue(writer, this);
-            return writer.toString();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 }
