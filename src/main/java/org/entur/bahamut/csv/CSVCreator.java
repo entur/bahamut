@@ -72,7 +72,7 @@ public final class CSVCreator {
         map.put(CATEGORY, CSVJsonValue(peliasDocument.category()));
         map.put(DESCRIPTION, CSVJsonValue(peliasDocument.descriptionMap()));
         if (peliasDocument.parent() != null) {
-            map.put(PARENT, CSVJsonValue(wrapParentFieldsInLists(peliasDocument.parent().getParentFields())));
+            map.put(PARENT, CSVJsonValue(wrapValidParentFieldsInLists(peliasDocument.parent().getParentFields())));
         }
 
         map.put(NAME, CSVValue(peliasDocument.defaultName()));
@@ -113,17 +113,14 @@ public final class CSVCreator {
      * See the following comment to learn why we need to do this.
      * https://github.com/pelias/csv-importer/pull/97#issuecomment-1203920795
      */
-    private static Map<Parent.FieldName, List<Parent.Field>> wrapParentFieldsInLists(Map<Parent.FieldName, Parent.Field> parentFields) {
+    private static Map<Parent.FieldName, List<Parent.Field>> wrapValidParentFieldsInLists(Map<Parent.FieldName, Parent.Field> parentFields) {
 
         List<Map.Entry<Parent.FieldName, Parent.Field>> collect = parentFields.entrySet()
                 .stream()
-                .filter(entry -> !entry.getValue().isValid()).collect(Collectors.toList());
+                .filter(entry -> !entry.getValue().isValid()).toList();
 
         return parentFields.entrySet()
                 .stream()
-                // TODO: Some of the localities have no name. Which is not acceptable by the pelias model. Id and name are mandatory field.
-                //  We are filtering them out for now, but we need to find, why they are missing names and how we can fix them.
-                //  Does localities have even names in Netex file we are getting from tiamat.
                 .filter(entry -> entry.getValue().isValid())
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> List.of(entry.getValue())));
     }
