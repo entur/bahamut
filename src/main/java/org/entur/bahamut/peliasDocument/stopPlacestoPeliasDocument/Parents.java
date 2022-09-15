@@ -22,16 +22,17 @@ import org.entur.bahamut.peliasDocument.model.GeoPoint;
 import org.entur.bahamut.peliasDocument.model.Parent;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.rutebanken.netex.model.TopographicPlaceRefStructure;
 
 public class Parents {
 
-    public static Parent createParentsForTopographicPlaceRef(String topographicPlaceRef,
+    public static Parent createParentsForTopographicPlaceRef(TopographicPlaceRefStructure topographicPlaceRef,
                                                              GeoPoint centerPoint,
                                                              AdminUnitsCache adminUnitsCache) {
-        if (topographicPlaceRef != null) {
+        if (topographicPlaceRef != null && topographicPlaceRef.getRef() != null) {
 
             // Try getting parent info for locality by id.
-            var locality = adminUnitsCache.localities().get(topographicPlaceRef);
+            var locality = adminUnitsCache.localities().get(topographicPlaceRef.getRef());
             if (locality != null) {
                 return createParentsForLocality(locality, adminUnitsCache);
             }
@@ -43,7 +44,7 @@ public class Parents {
             }
 
             // Try getting parent info for county by id.
-            var county = adminUnitsCache.counties().get(topographicPlaceRef);
+            var county = adminUnitsCache.counties().get(topographicPlaceRef.getRef());
             if (county != null) {
                 return createParentsForCounty(county, adminUnitsCache);
             }
@@ -55,7 +56,7 @@ public class Parents {
             }
 
             // Try getting parent info for country by id.
-            var country = adminUnitsCache.countries().get(topographicPlaceRef);
+            var country = adminUnitsCache.countries().get(topographicPlaceRef.getRef());
             if (country != null) {
                 return createParentForCountry(country);
             }

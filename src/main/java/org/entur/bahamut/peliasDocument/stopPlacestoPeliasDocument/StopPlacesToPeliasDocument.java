@@ -142,8 +142,9 @@ public class StopPlacesToPeliasDocument {
 
     private static void setDefaultAlias(PeliasDocument document) {
         if (document.defaultAlias() == null && !document.aliasMap().isEmpty()) {
-            String defaultAlias = Optional.of(document.aliasMap().get(DEFAULT_LANGUAGE))
-                    .orElse(document.aliasMap().values().iterator().next());
+            String defaultAlias =
+                    Optional.of(document.aliasMap().get(DEFAULT_LANGUAGE))
+                            .orElse(document.aliasMap().values().iterator().next());
             document.addDefaultAlias(defaultAlias);
         }
     }
@@ -165,7 +166,6 @@ public class StopPlacesToPeliasDocument {
                     .map(VersionOfObjectRefStructure::getRef)
                     .collect(Collectors.toList()));
 
-
             // A bug in elasticsearch 2.3.4 used for pelias causes prefix queries for array values to fail,
             // thus making it impossible to query by tariff zone prefixes.
             // Instead, adding tariff zone authorities as a distinct indexed name.
@@ -176,15 +176,13 @@ public class StopPlacesToPeliasDocument {
     }
 
     private static void setParent(PeliasDocument document, StopPlace place, AdminUnitsCache adminUnitsCache) {
-        if (place.getTopographicPlaceRef() != null) {
-            document.setParent(
-                    Parents.createParentsForTopographicPlaceRef(
-                            place.getTopographicPlaceRef().getRef(),
-                            document.centerPoint(),
-                            adminUnitsCache
-                    )
-            );
-        }
+        document.setParent(
+                Parents.createParentsForTopographicPlaceRef(
+                        place.getTopographicPlaceRef(),
+                        document.centerPoint(),
+                        adminUnitsCache
+                )
+        );
     }
 
     /**
