@@ -72,7 +72,8 @@ public class Parent {
     public enum FieldName {
         COUNTRY("country"),
         COUNTY("county"),
-        LOCALITY("locality");
+        LOCALITY("locality"),
+        UNKNOWN("unknown");
 
         private final String value;
 

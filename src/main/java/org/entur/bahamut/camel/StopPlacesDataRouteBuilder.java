@@ -1,9 +1,7 @@
 package org.entur.bahamut.camel;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.Message;
 import org.apache.camel.builder.RouteBuilder;
-import org.entur.bahamut.adminUnitsCache.AdminUnitsCache;
 import org.entur.bahamut.csv.CSVCreator;
 import org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlacesToPeliasDocument;
 import org.entur.bahamut.services.BahamutBlobStoreService;
@@ -21,16 +19,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-import static org.entur.bahamut.services.BlobStoreService.BLOB_STORE_FILE_HANDLE;
-
 @Component
 public class StopPlacesDataRouteBuilder extends RouteBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(StopPlacesDataRouteBuilder.class);
 
-    public static final String WORK_DIRECTORY_HEADER = "bahamutWorkDir";
     public static final String OUTPUT_FILENAME_HEADER = "bahamutOutputFilename";
-    public static final String ADMIN_UNITS_CACHE_PROPERTY = "AdminUnitsCache";
 
     @Value("${bahamut.camel.redelivery.max:3}")
     private int maxRedelivery;
@@ -41,17 +35,11 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
     private int backOffMultiplier;
 
-    @Value("${bahamut.update.cron.schedule:0+0+0+1/1+*+?+*}")
-    private String cronSchedule;
-
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
     private String tiamatGeocoderFile;
 
     @Value("${bahamut.workdir:/tmp/bahamut/geocoder}")
     private String bahamutWorkDir;
-
-    @Value("${admin.units.cache.max.size:30000}")
-    private Integer cacheMaxSize;
 
     private final KakkaBlobStoreService kakkaBlobStoreService;
     private final BahamutBlobStoreService bahamutBlobStoreService;
@@ -78,51 +66,39 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 .logExhausted(true)
                 .logRetryStackTrace(true));
 
-        from("quartz://bahamut/makeCSV?cron=" + cronSchedule + "&trigger.timeZone=Europe/Oslo")
-                .to("direct:makeCSV");
-
         from("direct:makeCSV")
-                .setHeader(BLOB_STORE_FILE_HANDLE, constant(tiamatGeocoderFile))
-                .bean(kakkaBlobStoreService, "getBlob")
-                .setHeader(WORK_DIRECTORY_HEADER, constant(bahamutWorkDir))
-                .process(ZipUtilities::unzipFile)
-                .process(StopPlacesDataRouteBuilder::parseNetexFile)
-                .process(this::buildAdminUnitCache)
+                .process(this::loadStopPlacesFile)
+                .process(this::unzipStopPlacesToWorkingDirectory)
+                .process(this::parseStopPlacesNetexFile)
                 .process(this::netexEntitiesIndexToPeliasDocument)
                 .bean(new CSVCreator())
-                .process(StopPlacesDataRouteBuilder::setOutputFilenameHeaders)
-                .process(ZipUtilities::zipFile)
-                .bean(bahamutBlobStoreService, "uploadBlob")
-                .process(StopPlacesDataRouteBuilder::createCurrentFile)
-                .bean(bahamutBlobStoreService, "uploadBlob");
+                .process(this::setOutputFilenameHeader)
+                .process(this::zipCSVFile)
+                .process(this::uploadCSVFile)
+                .process(this::updateCurrentFile);
     }
 
-    private static void createCurrentFile(Exchange exchange) {
-        var outputFileName = exchange.getIn().getHeader(BLOB_STORE_FILE_HANDLE, String.class);
-        exchange.getIn().setBody(new ByteArrayInputStream(outputFileName.getBytes()));
-        exchange.getIn().setHeader(BLOB_STORE_FILE_HANDLE, "current");
+    private void loadStopPlacesFile(Exchange exchange) {
+        logger.debug("Loading stop places file");
+        exchange.getIn().setBody(
+                kakkaBlobStoreService.getBlob(tiamatGeocoderFile),
+                InputStream.class
+        );
     }
 
-    private static void setOutputFilenameHeaders(Exchange exchange) {
-        var outputFilename = "bahamut_export_geocoder_" + System.currentTimeMillis();
-        exchange.getIn().setHeader(BLOB_STORE_FILE_HANDLE, outputFilename + ".zip");
-        exchange.getIn().setHeader(OUTPUT_FILENAME_HEADER, outputFilename + ".csv");
+    private void unzipStopPlacesToWorkingDirectory(Exchange exchange) {
+        logger.debug("Unzipping stop places file");
+        ZipUtilities.unzipFile(
+                exchange.getIn().getBody(InputStream.class),
+                bahamutWorkDir
+        );
     }
 
-    private static void logRedelivery(Exchange exchange) {
-        var redeliveryCounter = exchange.getIn().getHeader("CamelRedeliveryCounter", Integer.class);
-        var redeliveryMaxCounter = exchange.getIn().getHeader("CamelRedeliveryMaxCounter", Integer.class);
-        var camelCaughtThrowable = exchange.getProperty("CamelExceptionCaught", Throwable.class);
-
-        logger.warn("Exchange failed, redelivering the message locally, attempt {}/{}...",
-                redeliveryCounter, redeliveryMaxCounter, camelCaughtThrowable);
-    }
-
-    private static void parseNetexFile(Exchange exchange) {
-        logger.debug("Parsing the Netex file.");
+    private void parseStopPlacesNetexFile(Exchange exchange) {
+        logger.debug("Parsing the stop place Netex file.");
         var parser = new NetexParser();
-        try (Stream<Path> paths = Files.walk(Paths.get(exchange.getIn().getHeader(WORK_DIRECTORY_HEADER, String.class)))) {
-            paths.filter(Files::isRegularFile).findFirst().ifPresent(path -> {
+        try (Stream<Path> paths = Files.walk(Paths.get(bahamutWorkDir))) {
+            paths.filter(StopPlacesDataRouteBuilder::isValidFile).findFirst().ifPresent(path -> {
                 try (InputStream inputStream = new FileInputStream(path.toFile())) {
                     exchange.getIn().setBody(parser.parse(inputStream));
                 } catch (Exception e) {
@@ -134,17 +110,59 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
         }
     }
 
+    private void updateCurrentFile(Exchange exchange) {
+        logger.debug("Updating the current file");
+        String currentCSVFileName = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".zip";
+        bahamutBlobStoreService.uploadBlob(
+                "current",
+                new ByteArrayInputStream(currentCSVFileName.getBytes())
+        );
+    }
+
+    private void setOutputFilenameHeader(Exchange exchange) {
+        exchange.getIn().setHeader(
+                OUTPUT_FILENAME_HEADER,
+                "bahamut_export_geocoder_" + System.currentTimeMillis()
+        );
+    }
+
+    private static void logRedelivery(Exchange exchange) {
+        var redeliveryCounter = exchange.getIn().getHeader("CamelRedeliveryCounter", Integer.class);
+        var redeliveryMaxCounter = exchange.getIn().getHeader("CamelRedeliveryMaxCounter", Integer.class);
+        var camelCaughtThrowable = exchange.getProperty("CamelExceptionCaught", Throwable.class);
+
+        logger.warn("Exchange failed, redelivering the message locally, attempt {}/{}...",
+                redeliveryCounter, redeliveryMaxCounter, camelCaughtThrowable);
+    }
+
     private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
         logger.debug("Converting netexEntitiesIndex to PeliasDocuments");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
-        AdminUnitsCache adminUnitCache = exchange.getProperty(ADMIN_UNITS_CACHE_PROPERTY, AdminUnitsCache.class);
-        exchange.getIn().setBody(stopPlacesToPeliasDocument.toPeliasDocuments(netexEntitiesIndex, adminUnitCache));
+        exchange.getIn().setBody(stopPlacesToPeliasDocument.toPeliasDocuments(netexEntitiesIndex));
     }
 
-    private void buildAdminUnitCache(Exchange exchange) {
-        logger.debug("Building admin units cache.");
-        var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
-        var adminUnitsCache = AdminUnitsCache.buildNewCache(netexEntitiesIndex, cacheMaxSize);
-        exchange.setProperty(ADMIN_UNITS_CACHE_PROPERTY, adminUnitsCache);
+    private void zipCSVFile(Exchange exchange) {
+        logger.debug("Zipping the created csv file");
+        ByteArrayInputStream zipFile = ZipUtilities.zipFile(
+                exchange.getIn().getBody(InputStream.class),
+                exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".csv"
+        );
+        exchange.getIn().setBody(zipFile);
+    }
+
+    private void uploadCSVFile(Exchange exchange) {
+        logger.debug("Uploading the CSV file");
+        bahamutBlobStoreService.uploadBlob(
+                exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".zip",
+                exchange.getIn().getBody(InputStream.class)
+        );
+    }
+
+    private static boolean isValidFile(Path path) {
+        try {
+            return Files.isRegularFile(path) && !Files.isHidden(path);
+        } catch (IOException e) {
+            return false;
+        }
     }
 }

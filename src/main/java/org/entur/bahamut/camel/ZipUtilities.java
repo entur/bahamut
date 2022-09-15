@@ -1,55 +1,58 @@
 package org.entur.bahamut.camel;
 
-import org.apache.camel.Exchange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
-
-import static org.entur.bahamut.camel.StopPlacesDataRouteBuilder.OUTPUT_FILENAME_HEADER;
-import static org.entur.bahamut.camel.StopPlacesDataRouteBuilder.WORK_DIRECTORY_HEADER;
 
 public final class ZipUtilities {
 
     private static final Logger logger = LoggerFactory.getLogger(ZipUtilities.class);
 
-    public static void unzipFile(Exchange exchange) {
-        var inputStream = exchange.getIn().getBody(InputStream.class);
-        var targetFolder = exchange.getIn().getHeader(WORK_DIRECTORY_HEADER, String.class);
-        unzipFile(inputStream, targetFolder);
+    public static File newFile(File destinationDir, ZipEntry zipEntry) throws IOException {
+        File destFile = new File(destinationDir, zipEntry.getName());
+
+        String destDirPath = destinationDir.getCanonicalPath();
+        String destFilePath = destFile.getCanonicalPath();
+
+        if (!destFilePath.startsWith(destDirPath + File.separator)) {
+            throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
+        }
+
+        return destFile;
     }
 
     public static void unzipFile(InputStream inputStream, String targetFolder) {
-        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
-            var buffer = new byte[1024];
+        var buffer = new byte[1024];
+        var destDir = new File(targetFolder);
+        try (var zis = new ZipInputStream(inputStream)) {
             var zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
-                var fileName = zipEntry.getName();
-                logger.info("unzipping file {} in folder {} ", fileName, targetFolder);
+                var newFile = newFile(destDir, zipEntry);
+                if (zipEntry.isDirectory()) {
+                    if (!newFile.isDirectory() && !newFile.mkdirs()) {
+                        throw new IOException("Failed to create directory " + newFile);
+                    }
+                } else {
+                    // This is necessary for archives created on Windows,
+                    // where the root directories don't have a corresponding entry in the zip file.
+                    // https://www.baeldung.com/java-compress-and-uncompress
+                    var parent = newFile.getParentFile();
+                    if (!parent.isDirectory() && !parent.mkdirs()) {
+                        throw new IOException("Failed to create directory " + parent);
+                    }
 
-                var path = Path.of(targetFolder + "/" + fileName);
-                if (Files.isDirectory(path)) {
-                    path.toFile().mkdirs();
-                    continue;
+                    // write file content
+                    var fos = new FileOutputStream(newFile);
+                    int len;
+                    while ((len = zis.read(buffer)) > 0) {
+                        fos.write(buffer, 0, len);
+                    }
+                    fos.close();
                 }
-
-                File parent = path.toFile().getParentFile();
-                if (parent != null) {
-                    parent.mkdirs();
-                }
-
-
-                var fos = new FileOutputStream(path.toFile());
-                int len;
-                while ((len = zis.read(buffer)) > 0) {
-                    fos.write(buffer, 0, len);
-                }
-                fos.close();
                 zipEntry = zis.getNextEntry();
             }
             zis.closeEntry();
@@ -58,9 +61,7 @@ public final class ZipUtilities {
         }
     }
 
-    public static void zipFile(Exchange exchange) {
-        var inputStream = exchange.getIn().getBody(InputStream.class);
-        var outputFilename = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class);
+    public static ByteArrayInputStream zipFile(InputStream inputStream, String outputFilename) {
         logger.info("zipping file {}", outputFilename);
         try {
             var inputBytes = inputStream.readAllBytes();
@@ -72,7 +73,7 @@ public final class ZipUtilities {
             zos.write(inputBytes);
             zos.closeEntry();
             zos.close();
-            exchange.getIn().setBody(new ByteArrayInputStream(baos.toByteArray()));
+            return new ByteArrayInputStream(baos.toByteArray());
         } catch (Exception ex) {
             throw new RuntimeException("Failed to add file to zip: " + ex.getMessage(), ex);
         }

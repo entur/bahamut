@@ -19,9 +19,9 @@ package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.entur.bahamut.adminUnitsCache.AdminUnitsCache;
 import org.entur.bahamut.peliasDocument.model.AddressParts;
 import org.entur.bahamut.peliasDocument.model.GeoPoint;
+import org.entur.bahamut.peliasDocument.model.Parent;
 import org.entur.bahamut.peliasDocument.model.PeliasDocument;
 import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchies;
 import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchy;
@@ -55,7 +55,7 @@ public class StopPlacesToPeliasDocument {
         this.stopPlaceBoostConfiguration = stopPlaceBoostConfiguration;
     }
 
-    public List<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex, AdminUnitsCache adminUnitsCache) {
+    public List<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex) {
 
         var stopPlaceToPeliasDocumentMapper = new StopPlacesToPeliasDocument(stopPlaceBoostConfiguration);
 
@@ -63,7 +63,7 @@ public class StopPlacesToPeliasDocument {
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
                 .flatMap(stopPlaces -> StopPlaceHierarchies.create(stopPlaces).stream())
                 .flatMap(stopPlacePlaceHierarchy ->
-                        stopPlaceToPeliasDocumentMapper.toPeliasDocumentsForNames(stopPlacePlaceHierarchy, adminUnitsCache).stream())
+                        stopPlaceToPeliasDocumentMapper.toPeliasDocumentsForNames(stopPlacePlaceHierarchy).stream())
                 .sorted((p1, p2) -> -p1.popularity().compareTo(p2.popularity()))
                 .filter(PeliasDocument::isValid)
                 .toList();
@@ -80,7 +80,7 @@ public class StopPlacesToPeliasDocument {
      * When support for this is ready this mapping should be refactored to produce
      * a single document per place hierarchy.
      */
-    public List<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy, AdminUnitsCache adminUnitsCache) {
+    public List<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy) {
         StopPlace place = placeHierarchy.getPlace();
         if (!isValid(place)) {
             return new ArrayList<>();
@@ -88,11 +88,11 @@ public class StopPlacesToPeliasDocument {
         var cnt = new AtomicInteger();
 
         return getNames(placeHierarchy).stream()
-                .map(name -> createPeliasDocument(placeHierarchy, name, adminUnitsCache, cnt.getAndAdd(1)))
+                .map(name -> createPeliasDocument(placeHierarchy, name, cnt.getAndAdd(1)))
                 .collect(Collectors.toList());
     }
 
-    private PeliasDocument createPeliasDocument(StopPlaceHierarchy placeHierarchy, MultilingualString name, AdminUnitsCache adminUnitsCache, int idx) {
+    private PeliasDocument createPeliasDocument(StopPlaceHierarchy placeHierarchy, MultilingualString name, int idx) {
         StopPlace place = placeHierarchy.getPlace();
 
         var idSuffix = idx > 0 ? "-" + idx : "";
@@ -111,7 +111,7 @@ public class StopPlacesToPeliasDocument {
         setDefaultAlias(document);
         setPopularity(document, stopPlaceBoostConfiguration, stopTypeAndSubModeList, place);
         setTariffZones(document, place);
-        setParent(document, place, adminUnitsCache);
+        setParent(document, place);
 
         return document;
     }
@@ -175,14 +175,12 @@ public class StopPlacesToPeliasDocument {
         }
     }
 
-    private static void setParent(PeliasDocument document, StopPlace place, AdminUnitsCache adminUnitsCache) {
+    private static void setParent(PeliasDocument document, StopPlace place) {
         if (place.getTopographicPlaceRef() != null) {
             document.setParent(
-                    Parents.createParentsForTopographicPlaceRef(
-                            place.getTopographicPlaceRef().getRef(),
-                            document.centerPoint(),
-                            adminUnitsCache
-                    )
+                    Parent.initParentWithField(
+                            Parent.FieldName.UNKNOWN,
+                            new Parent.Field(place.getTopographicPlaceRef().getRef(), place.getTopographicPlaceRef().getRef()))
             );
         }
     }

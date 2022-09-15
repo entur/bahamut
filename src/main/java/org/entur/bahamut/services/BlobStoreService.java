@@ -18,31 +18,24 @@
 
 package org.entur.bahamut.services;
 
-import org.apache.camel.Header;
 import org.entur.bahamut.blobStoreRepository.BlobStoreRepository;
 
 import java.io.InputStream;
 
 public abstract class BlobStoreService {
-    public static final String BLOB_STORE_FILE_HANDLE = "EnturFileHandle";
 
     protected final BlobStoreRepository repository;
 
     protected BlobStoreService(String bucketName, BlobStoreRepository repository) {
         this.repository = repository;
         this.repository.setBucketName(bucketName);
-        System.out.println();
     }
 
-    public boolean existBlob(@Header(value = BLOB_STORE_FILE_HANDLE) String name) {
-        return repository.existBlob(name);
-    }
-
-    public InputStream getBlob(@Header(value = BLOB_STORE_FILE_HANDLE) String name) {
+    public InputStream getBlob(String name) {
         return repository.getBlob(name);
     }
 
-    public void uploadBlob(@Header(value = BLOB_STORE_FILE_HANDLE) String name, InputStream inputStream) {
+    public void uploadBlob(String name, InputStream inputStream) {
         repository.uploadBlob(name, inputStream);
     }
 }
