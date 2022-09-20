@@ -1,11 +1,13 @@
 package org.entur.bahamut.camel;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.builder.RouteBuilder;
-import org.entur.bahamut.csv.CSVCreator;
+import org.entur.bahamut.blobStore.BahamutBlobStoreService;
+import org.entur.bahamut.blobStore.KakkaBlobStoreService;
 import org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlacesToPeliasDocument;
-import org.entur.bahamut.services.BahamutBlobStoreService;
-import org.entur.bahamut.services.KakkaBlobStoreService;
+import org.entur.geocoder.ZipUtilities;
+import org.entur.geocoder.camel.ErrorHandlerRouteBuilder;
+import org.entur.geocoder.csv.CSVCreator;
+import org.entur.geocoder.model.PeliasDocumentList;
 import org.entur.netex.NetexParser;
 import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.slf4j.Logger;
@@ -20,20 +22,11 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 @Component
-public class StopPlacesDataRouteBuilder extends RouteBuilder {
+public class StopPlacesDataRouteBuilder extends ErrorHandlerRouteBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(StopPlacesDataRouteBuilder.class);
 
     public static final String OUTPUT_FILENAME_HEADER = "bahamutOutputFilename";
-
-    @Value("${bahamut.camel.redelivery.max:3}")
-    private int maxRedelivery;
-
-    @Value("${bahamut.camel.redelivery.delay:5000}")
-    private int redeliveryDelay;
-
-    @Value("${bahamut.camel.redelivery.backoff.multiplier:3}")
-    private int backOffMultiplier;
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
     private String tiamatGeocoderFile;
@@ -45,10 +38,15 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     private final BahamutBlobStoreService bahamutBlobStoreService;
     private final StopPlacesToPeliasDocument stopPlacesToPeliasDocument;
 
+    // TODO: Do i need camel ???
     public StopPlacesDataRouteBuilder(
             KakkaBlobStoreService kakkaBlobStoreService,
             BahamutBlobStoreService bahamutBlobStoreService,
-            StopPlacesToPeliasDocument stopPlacesToPeliasDocument) {
+            StopPlacesToPeliasDocument stopPlacesToPeliasDocument,
+            @Value("${bahamut.camel.redelivery.max:3}") int maxRedelivery,
+            @Value("${bahamut.camel.redelivery.delay:5000}") int redeliveryDelay,
+            @Value("${bahamut.camel.redelivery.backoff.multiplier:3}") int backOffMultiplier) {
+        super(maxRedelivery, redeliveryDelay, backOffMultiplier);
         this.kakkaBlobStoreService = kakkaBlobStoreService;
         this.bahamutBlobStoreService = bahamutBlobStoreService;
         this.stopPlacesToPeliasDocument = stopPlacesToPeliasDocument;
@@ -57,21 +55,12 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
     @Override
     public void configure() {
 
-        errorHandler(defaultErrorHandler()
-                .redeliveryDelay(redeliveryDelay)
-                .maximumRedeliveries(maxRedelivery)
-                .onRedelivery(StopPlacesDataRouteBuilder::logRedelivery)
-                .useExponentialBackOff()
-                .backOffMultiplier(backOffMultiplier)
-                .logExhausted(true)
-                .logRetryStackTrace(true));
-
         from("direct:makeCSV")
                 .process(this::loadStopPlacesFile)
                 .process(this::unzipStopPlacesToWorkingDirectory)
                 .process(this::parseStopPlacesNetexFile)
                 .process(this::netexEntitiesIndexToPeliasDocument)
-                .bean(new CSVCreator())
+                .process(this::createCSVFile)
                 .process(this::setOutputFilenameHeader)
                 .process(this::zipCSVFile)
                 .process(this::uploadCSVFile)
@@ -110,12 +99,17 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
         }
     }
 
-    private void updateCurrentFile(Exchange exchange) {
-        logger.debug("Updating the current file");
-        String currentCSVFileName = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".zip";
-        bahamutBlobStoreService.uploadBlob(
-                "current",
-                new ByteArrayInputStream(currentCSVFileName.getBytes())
+    private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
+        logger.debug("Converting netexEntitiesIndex to PeliasDocuments");
+        var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
+        exchange.getIn().setBody(stopPlacesToPeliasDocument.toPeliasDocuments(netexEntitiesIndex));
+    }
+
+    private void createCSVFile(Exchange exchange) {
+        logger.debug("Creating CSV file for PeliasDocuments");
+        PeliasDocumentList peliasDocuments = exchange.getIn().getBody(PeliasDocumentList.class);
+        exchange.getIn().setBody(
+                CSVCreator.create(peliasDocuments)
         );
     }
 
@@ -124,21 +118,6 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
                 OUTPUT_FILENAME_HEADER,
                 "bahamut_export_geocoder_" + System.currentTimeMillis()
         );
-    }
-
-    private static void logRedelivery(Exchange exchange) {
-        var redeliveryCounter = exchange.getIn().getHeader("CamelRedeliveryCounter", Integer.class);
-        var redeliveryMaxCounter = exchange.getIn().getHeader("CamelRedeliveryMaxCounter", Integer.class);
-        var camelCaughtThrowable = exchange.getProperty("CamelExceptionCaught", Throwable.class);
-
-        logger.warn("Exchange failed, redelivering the message locally, attempt {}/{}...",
-                redeliveryCounter, redeliveryMaxCounter, camelCaughtThrowable);
-    }
-
-    private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
-        logger.debug("Converting netexEntitiesIndex to PeliasDocuments");
-        var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
-        exchange.getIn().setBody(stopPlacesToPeliasDocument.toPeliasDocuments(netexEntitiesIndex));
     }
 
     private void zipCSVFile(Exchange exchange) {
@@ -155,6 +134,15 @@ public class StopPlacesDataRouteBuilder extends RouteBuilder {
         bahamutBlobStoreService.uploadBlob(
                 exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".zip",
                 exchange.getIn().getBody(InputStream.class)
+        );
+    }
+
+    private void updateCurrentFile(Exchange exchange) {
+        logger.debug("Updating the current file");
+        String currentCSVFileName = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".zip";
+        bahamutBlobStoreService.uploadBlob(
+                "current",
+                new ByteArrayInputStream(currentCSVFileName.getBytes())
         );
     }
 

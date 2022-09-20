@@ -37,11 +37,11 @@ public class StopPlaceHierarchy {
     }
 
 
-    public StopPlace getPlace() {
+    public StopPlace place() {
         return place;
     }
 
-    public Collection<StopPlaceHierarchy> getChildren() {
+    public Collection<StopPlaceHierarchy> children() {
         return children;
     }
 
@@ -49,7 +49,7 @@ public class StopPlaceHierarchy {
         this.children = children;
     }
 
-    public StopPlaceHierarchy getParent() {
+    public StopPlaceHierarchy parent() {
         return parent;
     }
 }

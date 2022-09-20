@@ -1,7 +1,7 @@
 package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 
-import org.entur.bahamut.peliasDocument.model.PeliasDocument;
 import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchy;
+import org.entur.geocoder.model.PeliasDocument;
 import org.rutebanken.netex.model.MultilingualString;
 import org.rutebanken.netex.model.NameTypeEnumeration;
 import org.rutebanken.netex.model.StopPlace;
@@ -10,16 +10,19 @@ import org.springframework.util.CollectionUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlacesToPeliasDocument.DEFAULT_LANGUAGE;
+
 public class Names {
 
     static void setDefaultName(PeliasDocument document, MultilingualString name) {
         if (name != null) {
-            document.addDefaultName(name.getValue());
+            document.setDefaultName(name.getValue());
         }
     }
 
@@ -30,7 +33,7 @@ public class Names {
     static void setDisplayName(PeliasDocument document, StopPlaceHierarchy stopPlaceHierarchy) {
         var displayName = getClosestAvailableName(stopPlaceHierarchy);
         if (displayName != null) {
-            document.addDisplayName(displayName.getValue());
+            document.setDisplayName(displayName.getValue());
             if (displayName.getLang() != null) {
                 document.addName(displayName.getLang(), displayName.getValue());
             }
@@ -52,7 +55,7 @@ public class Names {
      * Add alternative names with type 'label' to alias map. Use parents values if not set on stop place.
      */
     static void setAlternativeNameLabels(PeliasDocument document, StopPlaceHierarchy placeHierarchy) {
-        StopPlace place = placeHierarchy.getPlace();
+        StopPlace place = placeHierarchy.place();
         if (place.getAlternativeNames() != null && !CollectionUtils.isEmpty(place.getAlternativeNames().getAlternativeName())) {
             place.getAlternativeNames().getAlternativeName().stream()
                     .filter(alternativeName ->
@@ -62,12 +65,12 @@ public class Names {
                         if (alternativeName.getName().getLang() != null) {
                             document.addAlias(alternativeName.getName().getLang(), alternativeName.getName().getValue());
                         } else {
-                            document.addDefaultAlias(alternativeName.getName().getValue());
+                            document.setDefaultAlias(alternativeName.getName().getValue());
                         }
                     });
         }
-        if ((document.aliasMap() == null || document.aliasMap().isEmpty()) && placeHierarchy.getParent() != null) {
-            setAlternativeNameLabels(document, placeHierarchy.getParent());
+        if ((document.getAliasMap() == null || document.getAliasMap().isEmpty()) && placeHierarchy.parent() != null) {
+            setAlternativeNameLabels(document, placeHierarchy.parent());
         }
     }
 
@@ -80,21 +83,29 @@ public class Names {
         return filterUnique(names);
     }
 
+    static void setDefaultAlias(PeliasDocument document) {
+        if (document.getDefaultAlias() == null && !document.getAliasMap().isEmpty()) {
+            String defaultAlias = Optional.of(document.getAliasMap().get(DEFAULT_LANGUAGE))
+                    .orElse(document.getAliasMap().values().iterator().next());
+            document.setDefaultAlias(defaultAlias);
+        }
+    }
+
     /**
      * Get name from current place or, if not set, on closest parent with name set.
      */
     private static MultilingualString getClosestAvailableName(StopPlaceHierarchy placeHierarchy) {
-        if (placeHierarchy.getPlace().getName() != null) {
-            return placeHierarchy.getPlace().getName();
+        if (placeHierarchy.place().getName() != null) {
+            return placeHierarchy.place().getName();
         }
-        if (placeHierarchy.getParent() != null) {
-            return getClosestAvailableName(placeHierarchy.getParent());
+        if (placeHierarchy.parent() != null) {
+            return getClosestAvailableName(placeHierarchy.parent());
         }
         return null;
     }
 
     private static void collectNames(StopPlaceHierarchy placeHierarchy, List<MultilingualString> names, boolean up) {
-        StopPlace place = placeHierarchy.getPlace();
+        StopPlace place = placeHierarchy.place();
         if (place.getName() != null) {
             names.add(place.getName());
         }
@@ -111,12 +122,12 @@ public class Names {
         }
 
         if (up) {
-            if (placeHierarchy.getParent() != null) {
-                collectNames(placeHierarchy.getParent(), names, up);
+            if (placeHierarchy.parent() != null) {
+                collectNames(placeHierarchy.parent(), names, up);
             }
         } else {
-            if (!CollectionUtils.isEmpty(placeHierarchy.getChildren())) {
-                placeHierarchy.getChildren().forEach(child -> collectNames(child, names, up));
+            if (!CollectionUtils.isEmpty(placeHierarchy.children())) {
+                placeHierarchy.children().forEach(child -> collectNames(child, names, up));
             }
         }
     }
