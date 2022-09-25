@@ -166,13 +166,11 @@ public class StopPlacesToPeliasDocument {
 
     private static void setParent(PeliasDocument document, StopPlace place) {
         if (place.getTopographicPlaceRef() != null) {
-            Parents parents = new Parents(DEFAULT_SOURCE);
-            parents.addOrReplaceParent(
+            document.getParents().addOrReplaceParent(
                     ParentType.UNKNOWN,
                     place.getTopographicPlaceRef().getRef(),
                     place.getTopographicPlaceRef().getRef()
             );
-            document.setParents(parents);
         }
     }
 
