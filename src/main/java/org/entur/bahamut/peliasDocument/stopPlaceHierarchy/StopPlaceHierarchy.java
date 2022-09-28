@@ -32,11 +32,6 @@ public class StopPlaceHierarchy {
         this.parent = parent;
     }
 
-    public StopPlaceHierarchy(StopPlace place) {
-        this(place, null);
-    }
-
-
     public StopPlace place() {
         return place;
     }

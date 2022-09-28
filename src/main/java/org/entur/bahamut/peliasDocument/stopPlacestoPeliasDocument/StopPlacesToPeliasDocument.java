@@ -24,22 +24,18 @@ import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchy;
 import org.entur.geocoder.model.*;
 import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.rutebanken.netex.model.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.Names.*;
 import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlaceValidator.isValid;
 
 @Component
 public class StopPlacesToPeliasDocument {
-
-    private static final Logger logger = LoggerFactory.getLogger(StopPlacesToPeliasDocument.class);
 
     public static final String STOP_PLACE_LAYER = "stop_place";
     public static final String PARENT_STOP_PLACE_LAYER = "stop_place_parent";
@@ -54,22 +50,17 @@ public class StopPlacesToPeliasDocument {
         this.stopPlaceBoostConfiguration = stopPlaceBoostConfiguration;
     }
 
-    public PeliasDocumentList toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex) {
+    public Stream<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex) {
 
         var stopPlaceToPeliasDocumentMapper = new StopPlacesToPeliasDocument(stopPlaceBoostConfiguration);
 
-        var stopPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
+        return netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
-                .flatMap(stopPlaces -> StopPlaceHierarchies.create(stopPlaces).stream())
-                .flatMap(stopPlacePlaceHierarchy ->
-                        stopPlaceToPeliasDocumentMapper.toPeliasDocumentsForNames(stopPlacePlaceHierarchy).stream())
+                .map(StopPlaceHierarchies::create)
+                .flatMap(Collection::stream)
+                .flatMap(stopPlaceToPeliasDocumentMapper::toPeliasDocumentsForNames)
                 .sorted((p1, p2) -> -p1.getPopularity().compareTo(p2.getPopularity()))
-                .filter(PeliasDocument::isValid)
-                .collect(Collectors.toCollection(PeliasDocumentList::new));
-
-        logger.debug("Number of valid pelias documents created for stop places {}", stopPlaceDocuments.size());
-
-        return stopPlaceDocuments;
+                .filter(PeliasDocument::isValid);
     }
 
     /**
@@ -79,16 +70,15 @@ public class StopPlacesToPeliasDocument {
      * When support for this is ready this mapping should be refactored to produce
      * a single document per place hierarchy.
      */
-    public PeliasDocumentList toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy) {
+    public Stream<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy) {
         StopPlace place = placeHierarchy.place();
         if (!isValid(place)) {
-            return new PeliasDocumentList();
+            return Stream.empty() ;
         }
         var cnt = new AtomicInteger();
 
         return getNames(placeHierarchy).stream()
-                .map(name -> createPeliasDocument(placeHierarchy, name, cnt.getAndAdd(1)))
-                .collect(Collectors.toCollection(PeliasDocumentList::new));
+                .map(name -> createPeliasDocument(placeHierarchy, name, cnt.getAndAdd(1)));
     }
 
     private PeliasDocument createPeliasDocument(StopPlaceHierarchy placeHierarchy, MultilingualString name, int idx) {

@@ -35,7 +35,7 @@ public class Names {
         if (displayName != null) {
             document.setDisplayName(displayName.getValue());
             if (displayName.getLang() != null) {
-                document.addName(displayName.getLang(), displayName.getValue());
+                document.addAlternativeName(displayName.getLang(), displayName.getValue());
             }
         }
     }
@@ -47,7 +47,7 @@ public class Names {
                     .filter(alternativeName ->
                             NameTypeEnumeration.TRANSLATION.equals(alternativeName.getNameType())
                                     && alternativeName.getName() != null && alternativeName.getName().getLang() != null)
-                    .forEach(n -> document.addName(n.getName().getLang(), n.getName().getValue()));
+                    .forEach(n -> document.addAlternativeName(n.getName().getLang(), n.getName().getValue()));
         }
     }
 
@@ -63,13 +63,13 @@ public class Names {
                                     && alternativeName.getName() != null
                     ).forEach(alternativeName -> {
                         if (alternativeName.getName().getLang() != null) {
-                            document.addAlias(alternativeName.getName().getLang(), alternativeName.getName().getValue());
+                            document.addAlternativeAlias(alternativeName.getName().getLang(), alternativeName.getName().getValue());
                         } else {
                             document.setDefaultAlias(alternativeName.getName().getValue());
                         }
                     });
         }
-        if ((document.getAliasMap() == null || document.getAliasMap().isEmpty()) && placeHierarchy.parent() != null) {
+        if ((document.getAlternativeAlias() == null || document.getAlternativeAlias().isEmpty()) && placeHierarchy.parent() != null) {
             setAlternativeNameLabels(document, placeHierarchy.parent());
         }
     }
@@ -84,9 +84,9 @@ public class Names {
     }
 
     static void setDefaultAlias(PeliasDocument document) {
-        if (document.getDefaultAlias() == null && !document.getAliasMap().isEmpty()) {
-            String defaultAlias = Optional.of(document.getAliasMap().get(DEFAULT_LANGUAGE))
-                    .orElse(document.getAliasMap().values().iterator().next());
+        if (document.getDefaultAlias() == null && !document.getAlternativeAlias().isEmpty()) {
+            String defaultAlias = Optional.of(document.getAlternativeAlias().get(DEFAULT_LANGUAGE))
+                    .orElse(document.getAlternativeAlias().values().iterator().next());
             document.setDefaultAlias(defaultAlias);
         }
     }

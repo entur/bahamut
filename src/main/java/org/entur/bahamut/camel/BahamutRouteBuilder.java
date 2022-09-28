@@ -4,10 +4,11 @@ import org.apache.camel.Exchange;
 import org.entur.bahamut.blobStore.BahamutBlobStoreService;
 import org.entur.bahamut.blobStore.KakkaBlobStoreService;
 import org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlacesToPeliasDocument;
+import org.entur.geocoder.Utilities;
 import org.entur.geocoder.ZipUtilities;
 import org.entur.geocoder.camel.ErrorHandlerRouteBuilder;
 import org.entur.geocoder.csv.CSVCreator;
-import org.entur.geocoder.model.PeliasDocumentList;
+import org.entur.geocoder.model.PeliasDocument;
 import org.entur.netex.NetexParser;
 import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.slf4j.Logger;
@@ -22,9 +23,9 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 @Component
-public class StopPlacesDataRouteBuilder extends ErrorHandlerRouteBuilder {
+public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
 
-    private static final Logger logger = LoggerFactory.getLogger(StopPlacesDataRouteBuilder.class);
+    private static final Logger logger = LoggerFactory.getLogger(BahamutRouteBuilder.class);
 
     public static final String OUTPUT_FILENAME_HEADER = "bahamutOutputFilename";
 
@@ -38,8 +39,8 @@ public class StopPlacesDataRouteBuilder extends ErrorHandlerRouteBuilder {
     private final BahamutBlobStoreService bahamutBlobStoreService;
     private final StopPlacesToPeliasDocument stopPlacesToPeliasDocument;
 
-    // TODO: Do i need camel ???
-    public StopPlacesDataRouteBuilder(
+    // TODO: Do i need camel ??? What about retries if i remove camel ?
+    public BahamutRouteBuilder(
             KakkaBlobStoreService kakkaBlobStoreService,
             BahamutBlobStoreService bahamutBlobStoreService,
             StopPlacesToPeliasDocument stopPlacesToPeliasDocument,
@@ -59,7 +60,7 @@ public class StopPlacesDataRouteBuilder extends ErrorHandlerRouteBuilder {
                 .process(this::loadStopPlacesFile)
                 .process(this::unzipStopPlacesToWorkingDirectory)
                 .process(this::parseStopPlacesNetexFile)
-                .process(this::netexEntitiesIndexToPeliasDocument)
+                .process(this::netexEntitiesIndexToPeliasDocumentStream)
                 .process(this::createCSVFile)
                 .process(this::setOutputFilenameHeader)
                 .process(this::zipCSVFile)
@@ -83,34 +84,31 @@ public class StopPlacesDataRouteBuilder extends ErrorHandlerRouteBuilder {
         );
     }
 
-    private void parseStopPlacesNetexFile(Exchange exchange) {
+    private void parseStopPlacesNetexFile(Exchange exchange) throws IOException {
         logger.debug("Parsing the stop place Netex file.");
         var parser = new NetexParser();
         try (Stream<Path> paths = Files.walk(Paths.get(bahamutWorkDir))) {
-            paths.filter(StopPlacesDataRouteBuilder::isValidFile).findFirst().ifPresent(path -> {
-                try (InputStream inputStream = new FileInputStream(path.toFile())) {
-                    exchange.getIn().setBody(parser.parse(inputStream));
-                } catch (Exception e) {
+            paths.filter(Utilities::isValidFile).findFirst().ifPresent(path -> {
+                try {
+                    exchange.getIn().setBody(parser.parse(path.toString()));
+                } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             });
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 
-    private void netexEntitiesIndexToPeliasDocument(Exchange exchange) {
-        logger.debug("Converting netexEntitiesIndex to PeliasDocuments");
+    private void netexEntitiesIndexToPeliasDocumentStream(Exchange exchange) {
+        logger.debug("Creating \"netexEntitiesIndex to PeliasDocuments\" stream");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
         exchange.getIn().setBody(stopPlacesToPeliasDocument.toPeliasDocuments(netexEntitiesIndex));
     }
 
     private void createCSVFile(Exchange exchange) {
-        logger.debug("Creating CSV file for PeliasDocuments");
-        PeliasDocumentList peliasDocuments = exchange.getIn().getBody(PeliasDocumentList.class);
-        exchange.getIn().setBody(
-                CSVCreator.create(peliasDocuments)
-        );
+        logger.debug("Creating CSV file form PeliasDocuments stream");
+        @SuppressWarnings("unchecked")
+        Stream<PeliasDocument> peliasDocuments = exchange.getIn().getBody(Stream.class);
+        exchange.getIn().setBody(CSVCreator.create(peliasDocuments));
     }
 
     private void setOutputFilenameHeader(Exchange exchange) {
@@ -144,13 +142,5 @@ public class StopPlacesDataRouteBuilder extends ErrorHandlerRouteBuilder {
                 "current",
                 new ByteArrayInputStream(currentCSVFileName.getBytes())
         );
-    }
-
-    private static boolean isValidFile(Path path) {
-        try {
-            return Files.isRegularFile(path) && !Files.isHidden(path);
-        } catch (IOException e) {
-            return false;
-        }
     }
 }
