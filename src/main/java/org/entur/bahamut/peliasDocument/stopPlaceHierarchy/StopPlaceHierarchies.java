@@ -27,7 +27,7 @@ public class StopPlaceHierarchies {
         if (hierarchies != null) {
             for (var stopPlacePlaceHierarchy : hierarchies) {
                 target.add(stopPlacePlaceHierarchy);
-                expandStopPlaceHierarchies(stopPlacePlaceHierarchy.getChildren(), target);
+                expandStopPlaceHierarchies(stopPlacePlaceHierarchy.children(), target);
             }
         }
     }

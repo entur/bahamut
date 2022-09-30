@@ -1,6 +1,7 @@
-package org.entur.bahamut.services;
+package org.entur.bahamut.blobStore;
 
-import org.entur.bahamut.blobStoreRepository.BlobStoreRepository;
+import org.entur.geocoder.blobStore.BlobStoreRepository;
+import org.entur.geocoder.blobStore.BlobStoreService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

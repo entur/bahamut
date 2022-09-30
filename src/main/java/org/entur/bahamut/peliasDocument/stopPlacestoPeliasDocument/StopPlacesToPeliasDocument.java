@@ -19,22 +19,17 @@ package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.entur.bahamut.adminUnitsCache.AdminUnitsCache;
-import org.entur.bahamut.peliasDocument.model.AddressParts;
-import org.entur.bahamut.peliasDocument.model.GeoPoint;
-import org.entur.bahamut.peliasDocument.model.PeliasDocument;
 import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchies;
 import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchy;
+import org.entur.geocoder.model.*;
 import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.rutebanken.netex.model.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.Names.*;
 import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlaceValidator.isValid;
@@ -42,12 +37,12 @@ import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPl
 @Component
 public class StopPlacesToPeliasDocument {
 
-    private static final Logger logger = LoggerFactory.getLogger(StopPlacesToPeliasDocument.class);
-
     public static final String STOP_PLACE_LAYER = "stop_place";
     public static final String PARENT_STOP_PLACE_LAYER = "stop_place_parent";
     public static final String CHILD_STOP_PLACE_LAYER = "stop_place_child";
     public static final String DEFAULT_LANGUAGE = "no";
+    public static final String DEFAULT_SOURCE = "nsr";
+
 
     private final StopPlaceBoostConfiguration stopPlaceBoostConfiguration;
 
@@ -55,22 +50,17 @@ public class StopPlacesToPeliasDocument {
         this.stopPlaceBoostConfiguration = stopPlaceBoostConfiguration;
     }
 
-    public List<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex, AdminUnitsCache adminUnitsCache) {
+    public Stream<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex) {
 
         var stopPlaceToPeliasDocumentMapper = new StopPlacesToPeliasDocument(stopPlaceBoostConfiguration);
 
-        var stopPlaceDocuments = netexEntitiesIndex.getSiteFrames().stream()
+        return netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
-                .flatMap(stopPlaces -> StopPlaceHierarchies.create(stopPlaces).stream())
-                .flatMap(stopPlacePlaceHierarchy ->
-                        stopPlaceToPeliasDocumentMapper.toPeliasDocumentsForNames(stopPlacePlaceHierarchy, adminUnitsCache).stream())
-                .sorted((p1, p2) -> -p1.popularity().compareTo(p2.popularity()))
-                .filter(PeliasDocument::isValid)
-                .toList();
-
-        logger.debug("Number of valid pelias documents created for stop places {}", stopPlaceDocuments.size());
-
-        return stopPlaceDocuments;
+                .map(StopPlaceHierarchies::create)
+                .flatMap(Collection::stream)
+                .flatMap(stopPlaceToPeliasDocumentMapper::toPeliasDocumentsForNames)
+                .sorted((p1, p2) -> -p1.getPopularity().compareTo(p2.getPopularity()))
+                .filter(PeliasDocument::isValid);
     }
 
     /**
@@ -80,23 +70,22 @@ public class StopPlacesToPeliasDocument {
      * When support for this is ready this mapping should be refactored to produce
      * a single document per place hierarchy.
      */
-    public List<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy, AdminUnitsCache adminUnitsCache) {
-        StopPlace place = placeHierarchy.getPlace();
+    public Stream<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy) {
+        StopPlace place = placeHierarchy.place();
         if (!isValid(place)) {
-            return new ArrayList<>();
+            return Stream.empty() ;
         }
         var cnt = new AtomicInteger();
 
         return getNames(placeHierarchy).stream()
-                .map(name -> createPeliasDocument(placeHierarchy, name, adminUnitsCache, cnt.getAndAdd(1)))
-                .collect(Collectors.toList());
+                .map(name -> createPeliasDocument(placeHierarchy, name, cnt.getAndAdd(1)));
     }
 
-    private PeliasDocument createPeliasDocument(StopPlaceHierarchy placeHierarchy, MultilingualString name, AdminUnitsCache adminUnitsCache, int idx) {
-        StopPlace place = placeHierarchy.getPlace();
+    private PeliasDocument createPeliasDocument(StopPlaceHierarchy placeHierarchy, MultilingualString name, int idx) {
+        StopPlace place = placeHierarchy.place();
 
         var idSuffix = idx > 0 ? "-" + idx : "";
-        var document = new PeliasDocument(getLayer(placeHierarchy), place.getId() + idSuffix);
+        var document = new PeliasDocument(getLayer(placeHierarchy), DEFAULT_SOURCE, place.getId() + idSuffix);
 
         List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList = aggregateStopTypeAndSubMode(placeHierarchy);
 
@@ -111,7 +100,7 @@ public class StopPlacesToPeliasDocument {
         setDefaultAlias(document);
         setPopularity(document, stopPlaceBoostConfiguration, stopTypeAndSubModeList, place);
         setTariffZones(document, place);
-        setParent(document, place, adminUnitsCache);
+        setParent(document, place);
 
         return document;
     }
@@ -134,18 +123,9 @@ public class StopPlacesToPeliasDocument {
     }
 
     private static void setCategories(PeliasDocument document, List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList) {
-        document.setCategory(stopTypeAndSubModeList.stream()
+        stopTypeAndSubModeList.stream()
                 .map(Pair::getLeft).filter(Objects::nonNull)
-                .map(StopTypeEnumeration::value)
-                .collect(Collectors.toList()));
-    }
-
-    private static void setDefaultAlias(PeliasDocument document) {
-        if (document.defaultAlias() == null && !document.aliasMap().isEmpty()) {
-            String defaultAlias = Optional.of(document.aliasMap().get(DEFAULT_LANGUAGE))
-                    .orElse(document.aliasMap().values().iterator().next());
-            document.addDefaultAlias(defaultAlias);
-        }
+                .map(StopTypeEnumeration::value).forEach(document::addCategory);
     }
 
     /**
@@ -161,28 +141,25 @@ public class StopPlacesToPeliasDocument {
 
     private static void setTariffZones(PeliasDocument document, StopPlace place) {
         if (place.getTariffZones() != null && place.getTariffZones().getTariffZoneRef() != null) {
-            document.setTariffZones(place.getTariffZones().getTariffZoneRef().stream()
-                    .map(VersionOfObjectRefStructure::getRef)
-                    .collect(Collectors.toList()));
+            place.getTariffZones().getTariffZoneRef().stream()
+                    .map(VersionOfObjectRefStructure::getRef).forEach(document::addTariffZone);
 
 
             // A bug in elasticsearch 2.3.4 used for pelias causes prefix queries for array values to fail,
             // thus making it impossible to query by tariff zone prefixes.
             // Instead, adding tariff zone authorities as a distinct indexed name.
-            document.setTariffZoneAuthorities(place.getTariffZones().getTariffZoneRef().stream()
+            place.getTariffZones().getTariffZoneRef().stream()
                     .map(zoneRef -> zoneRef.getRef().split(":")[0]).distinct()
-                    .collect(Collectors.toList()));
+                    .forEach(document::addTariffZoneAuthority);
         }
     }
 
-    private static void setParent(PeliasDocument document, StopPlace place, AdminUnitsCache adminUnitsCache) {
+    private static void setParent(PeliasDocument document, StopPlace place) {
         if (place.getTopographicPlaceRef() != null) {
-            document.setParent(
-                    Parents.createParentsForTopographicPlaceRef(
-                            place.getTopographicPlaceRef().getRef(),
-                            document.centerPoint(),
-                            adminUnitsCache
-                    )
+            document.getParents().addOrReplaceParent(
+                    ParentType.UNKNOWN,
+                    place.getTopographicPlaceRef().getRef(),
+                    place.getTopographicPlaceRef().getRef()
             );
         }
     }
@@ -197,9 +174,9 @@ public class StopPlacesToPeliasDocument {
      * @param hierarchy
      */
     private static String getLayer(StopPlaceHierarchy hierarchy) {
-        if (hierarchy.getParent() != null) {
+        if (hierarchy.parent() != null) {
             return CHILD_STOP_PLACE_LAYER;
-        } else if (!CollectionUtils.isEmpty(hierarchy.getChildren())) {
+        } else if (!CollectionUtils.isEmpty(hierarchy.children())) {
             return PARENT_STOP_PLACE_LAYER;
         }
         return STOP_PLACE_LAYER;
@@ -208,12 +185,12 @@ public class StopPlacesToPeliasDocument {
     private static List<Pair<StopTypeEnumeration, Enum>> aggregateStopTypeAndSubMode(StopPlaceHierarchy placeHierarchy) {
         List<Pair<StopTypeEnumeration, Enum>> types = new ArrayList<>();
 
-        StopPlace stopPlace = placeHierarchy.getPlace();
+        StopPlace stopPlace = placeHierarchy.place();
 
         types.add(new ImmutablePair<>(stopPlace.getStopPlaceType(), getStopSubMode(stopPlace)));
 
-        if (!CollectionUtils.isEmpty(placeHierarchy.getChildren())) {
-            types.addAll(placeHierarchy.getChildren().stream()
+        if (!CollectionUtils.isEmpty(placeHierarchy.children())) {
+            types.addAll(placeHierarchy.children().stream()
                     .map(StopPlacesToPeliasDocument::aggregateStopTypeAndSubMode)
                     .flatMap(Collection::stream).toList());
         }
@@ -243,9 +220,6 @@ public class StopPlacesToPeliasDocument {
      * TODO: DO we need this ???
      */
     private static void addIdToStreetNameToAvoidFalseDuplicates(PeliasDocument document, String placeId) {
-        if (document.addressParts() == null) {
-            document.setAddressParts(new AddressParts());
-        }
-        document.addressParts().setStreet("NOT_AN_ADDRESS-" + placeId);
+        document.setAddressParts(new AddressParts("NOT_AN_ADDRESS-" + placeId));
     }
 }
