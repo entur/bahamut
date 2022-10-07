@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
+package org.entur.bahamut.stopPlaces.boostConfiguration;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;

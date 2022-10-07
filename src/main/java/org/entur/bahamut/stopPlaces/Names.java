@@ -1,6 +1,6 @@
-package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
+package org.entur.bahamut.stopPlaces;
 
-import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchy;
+import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchy;
 import org.entur.geocoder.model.PeliasDocument;
 import org.rutebanken.netex.model.MultilingualString;
 import org.rutebanken.netex.model.NameTypeEnumeration;
@@ -16,7 +16,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlacesToPeliasDocument.DEFAULT_LANGUAGE;
+import static org.entur.bahamut.stopPlaces.PeliasDocumentMapper.DEFAULT_LANGUAGE;
 
 public class Names {
 

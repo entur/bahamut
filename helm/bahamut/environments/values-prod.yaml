@@ -1,9 +1,0 @@
-env: production
-replicas: 1
-
-gcp:
-  kakka:
-    bucketName: kakka-production
-
-  bahamut:
-    bucketName: bahamut-production

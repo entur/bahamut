@@ -14,13 +14,14 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
+package org.entur.bahamut.stopPlaces;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchies;
-import org.entur.bahamut.peliasDocument.stopPlaceHierarchy.StopPlaceHierarchy;
+import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchies;
+import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchy;
+import org.entur.bahamut.stopPlaces.boostConfiguration.StopPlaceBoostConfiguration;
 import org.entur.geocoder.model.*;
 import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.rutebanken.netex.model.*;
@@ -31,11 +32,11 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.Names.*;
-import static org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlaceValidator.isValid;
+import static org.entur.bahamut.stopPlaces.Names.*;
+import static org.entur.bahamut.stopPlaces.StopPlaceValidator.isValid;
 
 @Component
-public class StopPlacesToPeliasDocument {
+public class PeliasDocumentMapper {
 
     public static final String STOP_PLACE_LAYER = "stop_place";
     public static final String PARENT_STOP_PLACE_LAYER = "stop_place_parent";
@@ -46,13 +47,13 @@ public class StopPlacesToPeliasDocument {
 
     private final StopPlaceBoostConfiguration stopPlaceBoostConfiguration;
 
-    public StopPlacesToPeliasDocument(StopPlaceBoostConfiguration stopPlaceBoostConfiguration) {
+    public PeliasDocumentMapper(StopPlaceBoostConfiguration stopPlaceBoostConfiguration) {
         this.stopPlaceBoostConfiguration = stopPlaceBoostConfiguration;
     }
 
     public Stream<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex) {
 
-        var stopPlaceToPeliasDocumentMapper = new StopPlacesToPeliasDocument(stopPlaceBoostConfiguration);
+        var stopPlaceToPeliasDocumentMapper = new PeliasDocumentMapper(stopPlaceBoostConfiguration);
 
         return netexEntitiesIndex.getSiteFrames().stream()
                 .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
@@ -171,7 +172,6 @@ public class StopPlacesToPeliasDocument {
      * Multimodal children with another layer
      * Non-multimodal stops with default layer
      *
-     * @param hierarchy
      */
     private static String getLayer(StopPlaceHierarchy hierarchy) {
         if (hierarchy.parent() != null) {
@@ -191,7 +191,7 @@ public class StopPlacesToPeliasDocument {
 
         if (!CollectionUtils.isEmpty(placeHierarchy.children())) {
             types.addAll(placeHierarchy.children().stream()
-                    .map(StopPlacesToPeliasDocument::aggregateStopTypeAndSubMode)
+                    .map(PeliasDocumentMapper::aggregateStopTypeAndSubMode)
                     .flatMap(Collection::stream).toList());
         }
 

@@ -1,0 +1,10 @@
+env: dev
+replicas: 1
+
+gcs:
+  kakka:
+    bucketName: kakka-dev
+  bahamut:
+    bucketName: ent-gcs-bahamut-dev-001
+  haya:
+    bucketName: haya-dev
