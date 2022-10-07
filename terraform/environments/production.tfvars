@@ -1,6 +1,0 @@
-gcp_project = "entur-1287"
-gcp_storage_project = "entur-ror-prod"
-gcp_resources_project = "entur-ror-prod"
-kube_namespace = "production"
-bucket_bahamut_instance_name = "bahamut-production"
-bucket_kakka_instance_name = "kakka-production"

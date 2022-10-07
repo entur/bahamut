@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.stopPlaceHierarchy;
+package org.entur.bahamut.stopPlaces.stopPlaceHierarchy;
 
 import org.rutebanken.netex.model.StopPlace;
 

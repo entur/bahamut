@@ -14,7 +14,7 @@
  *
  */
 
-package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
+package org.entur.bahamut.stopPlaces.boostConfiguration;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.rutebanken.netex.model.*;

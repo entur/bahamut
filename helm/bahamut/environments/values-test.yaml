@@ -1,9 +1,0 @@
-env: test
-replicas: 1
-
-gcp:
-  kakka:
-    bucketName: kakka-test
-
-  bahamut:
-    bucketName: bahamut-test

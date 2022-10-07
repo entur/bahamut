@@ -1,0 +1,13 @@
+apiVersion: v2
+appVersion: "0.0.1"
+description: Addresses converter
+name: bahamut
+version: 0.1.0
+keywords:
+  - bahamut
+sources:
+  - https://github.com/entur/bahamut
+maintainers:
+  - name: 'team-ror'
+    email: team.rutedata@entur.org
+engine: gotpl

@@ -3,7 +3,7 @@ package org.entur.bahamut.camel;
 import org.apache.camel.Exchange;
 import org.entur.bahamut.blobStore.BahamutBlobStoreService;
 import org.entur.bahamut.blobStore.KakkaBlobStoreService;
-import org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument.StopPlacesToPeliasDocument;
+import org.entur.bahamut.stopPlaces.PeliasDocumentMapper;
 import org.entur.geocoder.Utilities;
 import org.entur.geocoder.ZipUtilities;
 import org.entur.geocoder.camel.ErrorHandlerRouteBuilder;
@@ -37,13 +37,13 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
 
     private final KakkaBlobStoreService kakkaBlobStoreService;
     private final BahamutBlobStoreService bahamutBlobStoreService;
-    private final StopPlacesToPeliasDocument stopPlacesToPeliasDocument;
+    private final PeliasDocumentMapper stopPlacesToPeliasDocument;
 
-    // TODO: Do i need camel ??? What about retries if i remove camel ?
+    // TODO: Do i need camel ??? What about retries if i remove camel ? spring-retry ??
     public BahamutRouteBuilder(
             KakkaBlobStoreService kakkaBlobStoreService,
             BahamutBlobStoreService bahamutBlobStoreService,
-            StopPlacesToPeliasDocument stopPlacesToPeliasDocument,
+            PeliasDocumentMapper stopPlacesToPeliasDocument,
             @Value("${bahamut.camel.redelivery.max:3}") int maxRedelivery,
             @Value("${bahamut.camel.redelivery.delay:5000}") int redeliveryDelay,
             @Value("${bahamut.camel.redelivery.backoff.multiplier:3}") int backOffMultiplier) {
@@ -65,7 +65,7 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
                 .process(this::setOutputFilenameHeader)
                 .process(this::zipCSVFile)
                 .process(this::uploadCSVFile)
-                .process(this::updateCurrentFile);
+                .process(this::copyCSVFileAsLatestToConfiguredBucket);
     }
 
     private void loadStopPlacesFile(Exchange exchange) {
@@ -135,12 +135,9 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
         );
     }
 
-    private void updateCurrentFile(Exchange exchange) {
+    private void copyCSVFileAsLatestToConfiguredBucket(Exchange exchange) {
         logger.debug("Updating the current file");
         String currentCSVFileName = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".zip";
-        bahamutBlobStoreService.uploadBlob(
-                "current",
-                new ByteArrayInputStream(currentCSVFileName.getBytes())
-        );
+        bahamutBlobStoreService.copyBlobAsLatestToTargetBucket(currentCSVFileName);
     }
 }

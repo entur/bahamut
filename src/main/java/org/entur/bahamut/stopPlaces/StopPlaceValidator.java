@@ -1,4 +1,4 @@
-package org.entur.bahamut.peliasDocument.stopPlacestoPeliasDocument;
+package org.entur.bahamut.stopPlaces;
 
 import org.rutebanken.netex.model.BusSubmodeEnumeration;
 import org.rutebanken.netex.model.StopPlace;
