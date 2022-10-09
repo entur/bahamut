@@ -4,7 +4,5 @@ replicas: 1
 gcs:
   kakka:
     bucketName: kakka-production
-  bahamut:
-    bucketName: ent-gcs-bahamut-prd-001
   haya:
     bucketName: haya-production

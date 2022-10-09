@@ -136,7 +136,7 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
     }
 
     private void copyCSVFileAsLatestToConfiguredBucket(Exchange exchange) {
-        logger.debug("Updating the current file");
+        logger.debug("Coping latest file to haya");
         String currentCSVFileName = exchange.getIn().getHeader(OUTPUT_FILENAME_HEADER, String.class) + ".zip";
         bahamutBlobStoreService.copyBlobAsLatestToTargetBucket(currentCSVFileName);
     }

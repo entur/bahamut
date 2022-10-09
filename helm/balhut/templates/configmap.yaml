@@ -4,9 +4,9 @@ data:
   application.properties: |+
     blobstore.gcs.bahamut.bucket.name=${BUCKET_NAME}
     blobstore.gcs.kakka.bucket.name={{ .Values.gcs.kakka.bucketName }}
+    blobstore.gcs.kakka.tiamat.geocoder.file=tiamat/geocoder/tiamat_export_geocoder_latest.zip
     blobstore.gcs.haya.bucket.name={{ .Values.gcs.haya.bucketName }}
-    blobstore.gcs.latest.filename_without_extension=bahamut_latest
-    blobstore.gcs.kakka.kartverket.addresses.folder=kartverket/addresses
+    blobstore.gcs.haya.latest.filename_without_extension=bahamut_latest
     blobstore.gcs.haya.import.folder=import
     spring.profiles.active=gcs-blobstore
     management.endpoints.enabled-by-default=false

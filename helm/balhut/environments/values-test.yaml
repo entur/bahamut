@@ -4,7 +4,5 @@ replicas: 1
 gcs:
   kakka:
     bucketName: kakka-test
-  bahamut:
-    bucketName: ent-gcs-bahamut-tst-001
   haya:
     bucketName: haya-test
