@@ -5,4 +5,4 @@ gcs:
   kakka:
     bucketName: kakka-test
   haya:
-    bucketName: haya-test
+    bucketName: ent-gcs-haya-tst-001

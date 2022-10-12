@@ -5,4 +5,4 @@ gcs:
   kakka:
     bucketName: kakka-production
   haya:
-    bucketName: haya-production
+    bucketName: ent-gcs-haya-prd-001
