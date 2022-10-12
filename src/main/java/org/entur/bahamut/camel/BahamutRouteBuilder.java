@@ -89,9 +89,9 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
         var parser = new NetexParser();
         try (Stream<Path> paths = Files.walk(Paths.get(bahamutWorkDir))) {
             paths.filter(Utilities::isValidFile).findFirst().ifPresent(path -> {
-                try {
-                    exchange.getIn().setBody(parser.parse(path.toString()));
-                } catch (IOException e) {
+                try (InputStream inputStream = new FileInputStream(path.toFile())) {
+                    exchange.getIn().setBody(parser.parse(inputStream));
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
