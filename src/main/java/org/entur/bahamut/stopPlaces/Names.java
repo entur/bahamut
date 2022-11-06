@@ -9,14 +9,10 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
-import static org.entur.bahamut.stopPlaces.PeliasDocumentMapper.DEFAULT_LANGUAGE;
+import static org.entur.bahamut.groupOfStopPlaces.GroupOfStopPlacePeliasDocumentMapper.filterUnique;
+import static org.entur.bahamut.stopPlaces.StopPlacePeliasDocumentMapper.DEFAULT_LANGUAGE;
 
 public class Names {
 
@@ -130,14 +126,5 @@ public class Names {
                 placeHierarchy.children().forEach(child -> collectNames(child, names, up));
             }
         }
-    }
-
-    private static List<MultilingualString> filterUnique(List<MultilingualString> strings) {
-        return strings.stream().filter(distinctByKey(MultilingualString::getValue)).collect(Collectors.toList());
-    }
-
-    private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
-        Map<Object, Boolean> seen = new ConcurrentHashMap<>();
-        return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
     }
 }

@@ -17,13 +17,10 @@
 package org.entur.bahamut.stopPlaces;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchies;
 import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchy;
-import org.entur.bahamut.stopPlaces.boostConfiguration.StopPlaceBoostConfiguration;
+import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
 import org.entur.geocoder.model.*;
-import org.entur.netex.index.api.NetexEntitiesIndex;
 import org.rutebanken.netex.model.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -36,7 +33,7 @@ import static org.entur.bahamut.stopPlaces.Names.*;
 import static org.entur.bahamut.stopPlaces.StopPlaceValidator.isValid;
 
 @Component
-public class PeliasDocumentMapper {
+public class StopPlacePeliasDocumentMapper {
 
     public static final String STOP_PLACE_LAYER = "stop_place";
     public static final String PARENT_STOP_PLACE_LAYER = "stop_place_parent";
@@ -44,23 +41,11 @@ public class PeliasDocumentMapper {
     public static final String DEFAULT_LANGUAGE = "no";
     public static final String DEFAULT_SOURCE = "nsr";
 
-
-    private final StopPlaceBoostConfiguration stopPlaceBoostConfiguration;
-
-    public PeliasDocumentMapper(StopPlaceBoostConfiguration stopPlaceBoostConfiguration) {
-        this.stopPlaceBoostConfiguration = stopPlaceBoostConfiguration;
-    }
-
-    public Stream<PeliasDocument> toPeliasDocuments(NetexEntitiesIndex netexEntitiesIndex) {
-
-        var stopPlaceToPeliasDocumentMapper = new PeliasDocumentMapper(stopPlaceBoostConfiguration);
-
-        return netexEntitiesIndex.getSiteFrames().stream()
-                .map(siteFrame -> siteFrame.getStopPlaces().getStopPlace())
-                .map(StopPlaceHierarchies::create)
-                .flatMap(Collection::stream)
-                .flatMap(stopPlaceToPeliasDocumentMapper::toPeliasDocumentsForNames)
-                .sorted((p1, p2) -> -p1.getPopularity().compareTo(p2.getPopularity()))
+    public Stream<PeliasDocument> toPeliasDocuments(List<StopPlaceHierarchy> stopPlaceHierarchies,
+                                                  StopPlacesPopularityCache stopPlacesPopularityCache) {
+        return stopPlaceHierarchies.stream()
+                .flatMap(stopPlaceHierarchy -> toPeliasDocumentsForNames(stopPlaceHierarchy, stopPlacesPopularityCache))
+                .sorted((p1, p2) -> -p1.getPopularity().compareTo(p2.getPopularity())) // TODO: Remove
                 .filter(PeliasDocument::isValid);
     }
 
@@ -71,35 +56,45 @@ public class PeliasDocumentMapper {
      * When support for this is ready this mapping should be refactored to produce
      * a single document per place hierarchy.
      */
-    public Stream<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy) {
+    public Stream<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy,
+                                                            StopPlacesPopularityCache stopPlacesPopularityCache) {
         StopPlace place = placeHierarchy.place();
         if (!isValid(place)) {
-            return Stream.empty() ;
+            return Stream.empty();
         }
         var cnt = new AtomicInteger();
 
         return getNames(placeHierarchy).stream()
-                .map(name -> createPeliasDocument(placeHierarchy, name, cnt.getAndAdd(1)));
+                .map(documentName -> createPeliasDocument(
+                        createId(place, cnt),
+                        documentName,
+                        stopPlacesPopularityCache.getPopularity(place.getId()),
+                        placeHierarchy)
+                );
     }
 
-    private PeliasDocument createPeliasDocument(StopPlaceHierarchy placeHierarchy, MultilingualString name, int idx) {
+    private String createId(StopPlace stopPlace, AtomicInteger documentIndex) {
+        var idSuffix = documentIndex.getAndAdd(1) > 0 ? "-" + documentIndex.getAndAdd(1) : "";
+        return stopPlace.getId() + idSuffix;
+    }
+
+    private PeliasDocument createPeliasDocument(String documentId,
+                                                MultilingualString documentName,
+                                                Long documentPopularity,
+                                                StopPlaceHierarchy placeHierarchy) {
         StopPlace place = placeHierarchy.place();
+        var document = new PeliasDocument(getLayer(placeHierarchy), DEFAULT_SOURCE, documentId);
 
-        var idSuffix = idx > 0 ? "-" + idx : "";
-        var document = new PeliasDocument(getLayer(placeHierarchy), DEFAULT_SOURCE, place.getId() + idSuffix);
-
-        List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList = aggregateStopTypeAndSubMode(placeHierarchy);
-
-        setDefaultName(document, name);
+        setDefaultName(document, documentName);
         setDisplayName(document, placeHierarchy);
         setCentroid(document, place);
         addIdToStreetNameToAvoidFalseDuplicates(document, place.getId());
         setDescription(document, place);
-        setCategories(document, stopTypeAndSubModeList);
+        setCategories(document, placeHierarchy);
         setAlternativeNames(document, place);
         setAlternativeNameLabels(document, placeHierarchy);
         setDefaultAlias(document);
-        setPopularity(document, stopPlaceBoostConfiguration, stopTypeAndSubModeList, place);
+        setPopularity(document, documentPopularity);
         setTariffZones(document, place);
         setParent(document, place);
 
@@ -123,21 +118,19 @@ public class PeliasDocumentMapper {
         }
     }
 
-    private static void setCategories(PeliasDocument document, List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList) {
-        stopTypeAndSubModeList.stream()
+    private static void setCategories(PeliasDocument document,
+                                      StopPlaceHierarchy placeHierarchy) {
+        StopTypesSubMode.getStopTypeAndSubMode(placeHierarchy).stream()
                 .map(Pair::getLeft).filter(Objects::nonNull)
-                .map(StopTypeEnumeration::value).forEach(document::addCategory);
+                .map(StopTypeEnumeration::value)
+                .forEach(document::addCategory);
     }
 
     /**
      * Make stop place rank highest in autocomplete by setting popularity
      */
-    private static void setPopularity(PeliasDocument document,
-                                      StopPlaceBoostConfiguration stopPlaceBoostConfiguration,
-                                      List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList,
-                                      StopPlace place) {
-        long popularity = stopPlaceBoostConfiguration.getPopularity(stopTypeAndSubModeList, place.getWeighting());
-        document.setPopularity(popularity);
+    private void setPopularity(PeliasDocument document, Long documentPopularity) {
+        document.setPopularity(documentPopularity);
     }
 
     private static void setTariffZones(PeliasDocument document, StopPlace place) {
@@ -171,7 +164,6 @@ public class PeliasDocumentMapper {
      * Multimodal parents with one layer
      * Multimodal children with another layer
      * Non-multimodal stops with default layer
-     *
      */
     private static String getLayer(StopPlaceHierarchy hierarchy) {
         if (hierarchy.parent() != null) {
@@ -180,37 +172,6 @@ public class PeliasDocumentMapper {
             return PARENT_STOP_PLACE_LAYER;
         }
         return STOP_PLACE_LAYER;
-    }
-
-    private static List<Pair<StopTypeEnumeration, Enum>> aggregateStopTypeAndSubMode(StopPlaceHierarchy placeHierarchy) {
-        List<Pair<StopTypeEnumeration, Enum>> types = new ArrayList<>();
-
-        StopPlace stopPlace = placeHierarchy.place();
-
-        types.add(new ImmutablePair<>(stopPlace.getStopPlaceType(), getStopSubMode(stopPlace)));
-
-        if (!CollectionUtils.isEmpty(placeHierarchy.children())) {
-            types.addAll(placeHierarchy.children().stream()
-                    .map(PeliasDocumentMapper::aggregateStopTypeAndSubMode)
-                    .flatMap(Collection::stream).toList());
-        }
-
-        return types;
-    }
-
-    private static Enum getStopSubMode(StopPlace stopPlace) {
-
-        if (stopPlace.getStopPlaceType() != null) {
-            switch (stopPlace.getStopPlaceType()) {
-                case AIRPORT -> stopPlace.getAirSubmode();
-                case HARBOUR_PORT, FERRY_STOP, FERRY_PORT -> stopPlace.getWaterSubmode();
-                case BUS_STATION, COACH_STATION, ONSTREET_BUS -> stopPlace.getBusSubmode();
-                case RAIL_STATION -> stopPlace.getRailSubmode();
-                case METRO_STATION -> stopPlace.getMetroSubmode();
-                case ONSTREET_TRAM, TRAM_STATION -> stopPlace.getTramSubmode();
-            }
-        }
-        return null;
     }
 
     /**

@@ -3,7 +3,11 @@ package org.entur.bahamut.camel;
 import org.apache.camel.Exchange;
 import org.entur.bahamut.blobStore.BahamutBlobStoreService;
 import org.entur.bahamut.blobStore.KakkaBlobStoreService;
-import org.entur.bahamut.stopPlaces.PeliasDocumentMapper;
+import org.entur.bahamut.groupOfStopPlaces.GroupOfStopPlacePeliasDocumentMapper;
+import org.entur.bahamut.BahamutData;
+import org.entur.bahamut.stopPlaces.StopPlacePeliasDocumentMapper;
+import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
+import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCacheBuilder;
 import org.entur.geocoder.Utilities;
 import org.entur.geocoder.ZipUtilities;
 import org.entur.geocoder.camel.ErrorHandlerRouteBuilder;
@@ -28,6 +32,7 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
     private static final Logger logger = LoggerFactory.getLogger(BahamutRouteBuilder.class);
 
     public static final String OUTPUT_FILENAME_HEADER = "bahamutOutputFilename";
+    private static final String STOP_PLACES_POPULARITY_CACHE_PROPERTY = "StopPlacesPopularity";
 
     @Value("${blobstore.gcs.kakka.tiamat.geocoder.file:tiamat/geocoder/tiamat_export_geocoder_latest.zip}")
     private String tiamatGeocoderFile;
@@ -37,13 +42,19 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
 
     private final KakkaBlobStoreService kakkaBlobStoreService;
     private final BahamutBlobStoreService bahamutBlobStoreService;
-    private final PeliasDocumentMapper stopPlacesToPeliasDocument;
+    private final StopPlacesPopularityCacheBuilder stopPlacesPopularityCacheBuilder;
+    private final StopPlacePeliasDocumentMapper stopPlacesToPeliasDocument;
+    private final GroupOfStopPlacePeliasDocumentMapper groupOfStopPlacePeliasDocument;
+    private final boolean gosInclude;
 
     // TODO: Do i need camel ??? What about retries if i remove camel ? spring-retry ??
     public BahamutRouteBuilder(
             KakkaBlobStoreService kakkaBlobStoreService,
             BahamutBlobStoreService bahamutBlobStoreService,
-            PeliasDocumentMapper stopPlacesToPeliasDocument,
+            StopPlacePeliasDocumentMapper stopPlacesToPeliasDocument,
+            GroupOfStopPlacePeliasDocumentMapper groupOfStopPlacePeliasDocument,
+            StopPlacesPopularityCacheBuilder stopPlacesPopularityCacheBuilder,
+            @Value("${bahamut.gos.include:true}") boolean gosInclude,
             @Value("${bahamut.camel.redelivery.max:3}") int maxRedelivery,
             @Value("${bahamut.camel.redelivery.delay:5000}") int redeliveryDelay,
             @Value("${bahamut.camel.redelivery.backoff.multiplier:3}") int backOffMultiplier) {
@@ -51,6 +62,9 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
         this.kakkaBlobStoreService = kakkaBlobStoreService;
         this.bahamutBlobStoreService = bahamutBlobStoreService;
         this.stopPlacesToPeliasDocument = stopPlacesToPeliasDocument;
+        this.groupOfStopPlacePeliasDocument = groupOfStopPlacePeliasDocument;
+        this.gosInclude = gosInclude;
+        this.stopPlacesPopularityCacheBuilder = stopPlacesPopularityCacheBuilder;
     }
 
     @Override
@@ -60,12 +74,18 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
                 .process(this::loadStopPlacesFile)
                 .process(this::unzipStopPlacesToWorkingDirectory)
                 .process(this::parseStopPlacesNetexFile)
-                .process(this::netexEntitiesIndexToPeliasDocumentStream)
+                .process(this::createBahamutData)
+                .process(this::fillStopPlacesPopularityCache)
+                .process(this::createPeliasDocumentsStream)
                 .process(this::createCSVFile)
                 .process(this::setOutputFilenameHeader)
                 .process(this::zipCSVFile)
                 .process(this::uploadCSVFile)
                 .process(this::copyCSVFileAsLatestToConfiguredBucket);
+    }
+
+    private void runProcess(Exchange exchange) {
+        loadStopPlacesFile(exchange);
     }
 
     private void loadStopPlacesFile(Exchange exchange) {
@@ -98,10 +118,36 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
         }
     }
 
-    private void netexEntitiesIndexToPeliasDocumentStream(Exchange exchange) {
-        logger.debug("Creating \"netexEntitiesIndex to PeliasDocuments\" stream");
+    private void createBahamutData(Exchange exchange) {
+        logger.debug("Creating bahamut data object");
         var netexEntitiesIndex = exchange.getIn().getBody(NetexEntitiesIndex.class);
-        exchange.getIn().setBody(stopPlacesToPeliasDocument.toPeliasDocuments(netexEntitiesIndex));
+        exchange.getIn().setBody(BahamutData.create(netexEntitiesIndex));
+    }
+
+    private void fillStopPlacesPopularityCache(Exchange exchange) {
+        logger.debug("Calculating and caching stop places popularity");
+        BahamutData bahamutData = exchange.getIn().getBody(BahamutData.class);
+        exchange.setProperty(
+                STOP_PLACES_POPULARITY_CACHE_PROPERTY,
+                stopPlacesPopularityCacheBuilder.build(bahamutData.stopPlaceHierarchies()));
+    }
+
+    private void createPeliasDocumentsStream(Exchange exchange) {
+        logger.debug("Creating PeliasDocuments stream");
+        var bahamutData = exchange.getIn().getBody(BahamutData.class);
+        var stopPlacePopularityCache =
+                exchange.getProperty(STOP_PLACES_POPULARITY_CACHE_PROPERTY, StopPlacesPopularityCache.class);
+        Stream<PeliasDocument> stopPlacesStream = stopPlacesToPeliasDocument.toPeliasDocuments(
+                bahamutData.stopPlaceHierarchies(),
+                stopPlacePopularityCache);
+        if (gosInclude) {
+            Stream<PeliasDocument> groupOfStopPlacesStream = groupOfStopPlacePeliasDocument.toPeliasDocuments(
+                    bahamutData.groupOfStopPlaces(),
+                    stopPlacePopularityCache);
+            exchange.getIn().setBody(Stream.concat(stopPlacesStream, groupOfStopPlacesStream));
+        } else {
+            exchange.getIn().setBody(stopPlacesStream);
+        }
     }
 
     private void createCSVFile(Exchange exchange) {

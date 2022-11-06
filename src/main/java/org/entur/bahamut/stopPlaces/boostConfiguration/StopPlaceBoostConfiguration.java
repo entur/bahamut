@@ -17,14 +17,14 @@
 package org.entur.bahamut.stopPlaces.boostConfiguration;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.entur.bahamut.stopPlaces.StopTypesSubMode;
+import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchy;
 import org.rutebanken.netex.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -49,6 +49,26 @@ public class StopPlaceBoostConfiguration {
         if (input.stopTypeFactors != null) {
             initiateStopTypeFactors(input.stopTypeFactors);
         }
+    }
+
+    public long getPopularity(StopPlaceHierarchy placeHierarchy) {
+        long popularity = defaultValue;
+
+        double stopTypeAndSubModeFactor = StopTypesSubMode.getStopTypeAndSubMode(placeHierarchy).stream()
+                .collect(Collectors.summarizingDouble(stopTypeAndSubMode ->
+                        getStopTypeAndSubModeFactor(stopTypeAndSubMode.getLeft(), stopTypeAndSubMode.getRight())))
+                .getSum();
+
+        if (stopTypeAndSubModeFactor > 0) {
+            popularity *= stopTypeAndSubModeFactor;
+        }
+
+        Double interchangeFactor = interchangeFactorMap.get(placeHierarchy.place().getWeighting());
+        if (interchangeFactor != null) {
+            popularity *= interchangeFactor;
+        }
+
+        return popularity;
     }
 
     private void initiateInterchangeFactors(Map<String, Double> interchangeFactors) {
@@ -78,27 +98,6 @@ public class StopPlaceBoostConfiguration {
                             )
                     );
         }
-    }
-
-    public long getPopularity(List<Pair<StopTypeEnumeration, Enum>> stopTypeAndSubModeList,
-                              InterchangeWeightingEnumeration interchangeWeighting) {
-        long popularity = defaultValue;
-
-        double stopTypeAndSubModeFactor = stopTypeAndSubModeList.stream()
-                .collect(Collectors.summarizingDouble(stopTypeAndSubMode ->
-                        getStopTypeAndSubModeFactor(stopTypeAndSubMode.getLeft(), stopTypeAndSubMode.getRight())))
-                .getSum();
-
-        if (stopTypeAndSubModeFactor > 0) {
-            popularity *= stopTypeAndSubModeFactor;
-        }
-
-        Double interchangeFactor = interchangeFactorMap.get(interchangeWeighting);
-        if (interchangeFactor != null) {
-            popularity *= interchangeFactor;
-        }
-
-        return popularity;
     }
 
     private double getStopTypeAndSubModeFactor(StopTypeEnumeration stopType, Enum subMode) {
