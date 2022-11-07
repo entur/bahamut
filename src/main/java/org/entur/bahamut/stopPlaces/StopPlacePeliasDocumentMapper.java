@@ -18,6 +18,7 @@ package org.entur.bahamut.stopPlaces;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.entur.bahamut.data.BahamutData;
 import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchy;
 import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
 import org.entur.geocoder.model.*;
@@ -41,11 +42,11 @@ public class StopPlacePeliasDocumentMapper {
     public static final String DEFAULT_LANGUAGE = "no";
     public static final String DEFAULT_SOURCE = "nsr";
 
-    public Stream<PeliasDocument> toPeliasDocuments(List<StopPlaceHierarchy> stopPlaceHierarchies,
-                                                  StopPlacesPopularityCache stopPlacesPopularityCache) {
-        return stopPlaceHierarchies.stream()
-                .flatMap(stopPlaceHierarchy -> toPeliasDocumentsForNames(stopPlaceHierarchy, stopPlacesPopularityCache))
-                .sorted((p1, p2) -> -p1.getPopularity().compareTo(p2.getPopularity())) // TODO: Remove
+    public Stream<PeliasDocument> toPeliasDocuments(BahamutData bahamutData) {
+        return bahamutData.stopPlaceHierarchies().stream()
+                .flatMap(stopPlaceHierarchy ->
+                        toPeliasDocumentsForNames(stopPlaceHierarchy,
+                                bahamutData.stopPlacesPopularityCache()))
                 .filter(PeliasDocument::isValid);
     }
 
