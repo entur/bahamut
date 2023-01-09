@@ -3,7 +3,7 @@ package org.entur.bahamut.camel;
 import org.apache.camel.Exchange;
 import org.entur.bahamut.blobStore.BahamutBlobStoreService;
 import org.entur.bahamut.blobStore.KakkaBlobStoreService;
-import org.entur.bahamut.groupOfStopPlaces.GroupOfStopPlacePeliasDocumentMapper;
+import org.entur.bahamut.groupOfStopPlaces.GroupOfStopPlacesPeliasDocumentMapper;
 import org.entur.bahamut.BahamutData;
 import org.entur.bahamut.stopPlaces.StopPlacePeliasDocumentMapper;
 import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
@@ -44,7 +44,7 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
     private final BahamutBlobStoreService bahamutBlobStoreService;
     private final StopPlacesPopularityCacheBuilder stopPlacesPopularityCacheBuilder;
     private final StopPlacePeliasDocumentMapper stopPlacesToPeliasDocument;
-    private final GroupOfStopPlacePeliasDocumentMapper groupOfStopPlacePeliasDocument;
+    private final GroupOfStopPlacesPeliasDocumentMapper groupOfStopPlacesPeliasDocument;
     private final boolean gosInclude;
 
     // TODO: Do i need camel ??? What about retries if i remove camel ? spring-retry ??
@@ -52,7 +52,7 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
             KakkaBlobStoreService kakkaBlobStoreService,
             BahamutBlobStoreService bahamutBlobStoreService,
             StopPlacePeliasDocumentMapper stopPlacesToPeliasDocument,
-            GroupOfStopPlacePeliasDocumentMapper groupOfStopPlacePeliasDocument,
+            GroupOfStopPlacesPeliasDocumentMapper groupOfStopPlacesPeliasDocument,
             StopPlacesPopularityCacheBuilder stopPlacesPopularityCacheBuilder,
             @Value("${bahamut.gos.include:true}") boolean gosInclude,
             @Value("${bahamut.camel.redelivery.max:3}") int maxRedelivery,
@@ -62,7 +62,7 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
         this.kakkaBlobStoreService = kakkaBlobStoreService;
         this.bahamutBlobStoreService = bahamutBlobStoreService;
         this.stopPlacesToPeliasDocument = stopPlacesToPeliasDocument;
-        this.groupOfStopPlacePeliasDocument = groupOfStopPlacePeliasDocument;
+        this.groupOfStopPlacesPeliasDocument = groupOfStopPlacesPeliasDocument;
         this.gosInclude = gosInclude;
         this.stopPlacesPopularityCacheBuilder = stopPlacesPopularityCacheBuilder;
     }
@@ -141,7 +141,7 @@ public class BahamutRouteBuilder extends ErrorHandlerRouteBuilder {
                 bahamutData.stopPlaceHierarchies(),
                 stopPlacePopularityCache);
         if (gosInclude) {
-            Stream<PeliasDocument> groupOfStopPlacesStream = groupOfStopPlacePeliasDocument.toPeliasDocuments(
+            Stream<PeliasDocument> groupOfStopPlacesStream = groupOfStopPlacesPeliasDocument.toPeliasDocuments(
                     bahamutData.groupOfStopPlaces(),
                     stopPlacePopularityCache);
             exchange.getIn().setBody(Stream.concat(stopPlacesStream, groupOfStopPlacesStream));

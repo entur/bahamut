@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.entur.bahamut.groupOfStopPlaces.GroupOfStopPlacePeliasDocumentMapper.filterUnique;
+import static org.entur.bahamut.groupOfStopPlaces.GroupOfStopPlacesPeliasDocumentMapper.filterUnique;
 import static org.entur.bahamut.stopPlaces.StopPlacePeliasDocumentMapper.DEFAULT_LANGUAGE;
 
 public class Names {

@@ -19,7 +19,13 @@
         <spring-cloud.version>2021.0.2</spring-cloud.version>
         <camel.version>3.16.0</camel.version>
         <geotools.version>20.3</geotools.version>
-        <wololo.version>0.17.0</wololo.version>
+        <wololo.version>0.18.1</wololo.version>
+        <netex-parser-java.version>2.0.1</netex-parser-java.version>
+        <opencsv.version>5.7.1</opencsv.version>
+        <logstash-logback-encoder.version>7.2</logstash-logback-encoder.version>
+        <commons-io.version>2.11.0</commons-io.version>
+        <geojson-jackson.version>1.14</geojson-jackson.version>
+        <geocoder-utilities.version>1.0-SNAPSHOT</geocoder-utilities.version>
     </properties>
     <dependencies>
         <dependency>
@@ -59,7 +65,7 @@
         <dependency>
             <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>
-            <version>5.7.0</version>
+            <version>${opencsv.version}</version>
         </dependency>
         <dependency>
             <groupId>org.wololo</groupId>
@@ -69,7 +75,7 @@
         <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
-            <version>7.2</version>
+            <version>${logstash-logback-encoder.version}</version>
         </dependency>
         <!-- logback core requires janino -->
         <dependency>
@@ -81,22 +87,22 @@
         <dependency>
             <groupId>org.entur</groupId>
             <artifactId>netex-parser-java</artifactId>
-            <version>2.0.0</version>
+            <version>${netex-parser-java.version}</version>
         </dependency>
         <dependency>
             <groupId>org.entur</groupId>
             <artifactId>geocoder-utilities</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${geocoder-utilities.version}</version>
         </dependency>
         <dependency>
             <groupId>de.grundid.opendatalab</groupId>
             <artifactId>geojson-jackson</artifactId>
-            <version>1.14</version>
+            <version>${geojson-jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.11.0</version>
+            <version>${commons-io.version}</version>
         </dependency>
     </dependencies>
     <dependencyManagement>

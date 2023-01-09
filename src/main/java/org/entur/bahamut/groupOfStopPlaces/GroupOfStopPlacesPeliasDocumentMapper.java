@@ -22,16 +22,16 @@ import java.util.stream.Stream;
  * Map NeTEx GroupOfStopPlaces objects to Pelias documents.
  */
 @Component
-public class GroupOfStopPlacePeliasDocumentMapper {
+public class GroupOfStopPlacesPeliasDocumentMapper {
     // Using substitute layer for GoS to avoid having to fork pelias (custom layers not configurable).
-    public static final String ADDRESS_LAYER = "gos";
+    public static final String GROUP_OF_STOP_PLACE_LAYER = "group_of_stop_places";
     public static final String DEFAULT_SOURCE = "nsr";
     private static final String DEFAULT_LANGUAGE = "nor";
 
 
     private final GroupOfStopPlacesBoostConfiguration groupOfStopPlacesBoostConfiguration;
 
-    public GroupOfStopPlacePeliasDocumentMapper(GroupOfStopPlacesBoostConfiguration groupOfStopPlacesBoostConfiguration) {
+    public GroupOfStopPlacesPeliasDocumentMapper(GroupOfStopPlacesBoostConfiguration groupOfStopPlacesBoostConfiguration) {
         this.groupOfStopPlacesBoostConfiguration = groupOfStopPlacesBoostConfiguration;
     }
 
@@ -73,7 +73,7 @@ public class GroupOfStopPlacePeliasDocumentMapper {
 
     public static boolean isValid(GroupOfEntities_VersionStructure object) {
         return CollectionUtils.isEmpty(object.getValidBetween())
-                || object.getValidBetween().stream().anyMatch(GroupOfStopPlacePeliasDocumentMapper::isValidNow);
+                || object.getValidBetween().stream().anyMatch(GroupOfStopPlacesPeliasDocumentMapper::isValidNow);
     }
 
     /*
@@ -97,7 +97,7 @@ public class GroupOfStopPlacePeliasDocumentMapper {
                                             Long documentPopularity,
                                             GroupOfStopPlaces groupOfStopPlaces) {
 
-        PeliasDocument document = new PeliasDocument(ADDRESS_LAYER, DEFAULT_SOURCE, documentId);
+        PeliasDocument document = new PeliasDocument(GROUP_OF_STOP_PLACE_LAYER, DEFAULT_SOURCE, documentId);
         if (documentName != null) {
             document.setDefaultName(documentName.getValue());
         }
