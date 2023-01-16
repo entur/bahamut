@@ -1,6 +1,7 @@
 package org.entur.bahamut.groupOfStopPlaces;
 
 import org.apache.commons.lang3.StringUtils;
+import org.entur.bahamut.data.BahamutData;
 import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
 import org.entur.geocoder.model.AddressParts;
 import org.entur.geocoder.model.GeoPoint;
@@ -35,11 +36,11 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
         this.groupOfStopPlacesBoostConfiguration = groupOfStopPlacesBoostConfiguration;
     }
 
-    public Stream<PeliasDocument> toPeliasDocuments(List<GroupOfStopPlaces> listOfGroupOfStopPlaces,
-                                                    StopPlacesPopularityCache stopPlacesPopularityCache) {
-        return listOfGroupOfStopPlaces.stream()
-                .flatMap(groupOfStopPlaces -> toPeliasDocumentsForNames(groupOfStopPlaces, stopPlacesPopularityCache))
-                .sorted((p1, p2) -> -p1.getPopularity().compareTo(p2.getPopularity())) // TODO: Remove
+    public Stream<PeliasDocument> toPeliasDocuments(BahamutData bahamutData) {
+        return bahamutData.groupOfStopPlaces().stream()
+                .flatMap(groupOfStopPlaces ->
+                        toPeliasDocumentsForNames(groupOfStopPlaces,
+                                bahamutData.stopPlacesPopularityCache()))
                 .filter(PeliasDocument::isValid);
     }
 
