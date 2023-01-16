@@ -18,6 +18,7 @@
         <netex-parser-java.version>2.0.1</netex-parser-java.version>
         <logstash-logback-encoder.version>7.2</logstash-logback-encoder.version>
         <geocoder-utilities.version>1.1-SNAPSHOT</geocoder-utilities.version>
+        <spring-cloud-gcp.version>3.4.1</spring-cloud-gcp.version>
     </properties>
     <dependencies>
         <dependency>
@@ -38,12 +39,20 @@
             <artifactId>spring-aspects</artifactId>
         </dependency>
 
-        <!-- logback core requires janino -->
+        <!-- Storage -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>spring-cloud-gcp-starter-storage</artifactId>
+            <version>${spring-cloud-gcp.version}</version>
+        </dependency>
+
+        <!-- logback encoder -->
         <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
             <version>${logstash-logback-encoder.version}</version>
         </dependency>
+        <!-- logback core requires janino -->
         <dependency>
             <groupId>org.codehaus.janino</groupId>
             <artifactId>janino</artifactId>
