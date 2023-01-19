@@ -1,16 +1,11 @@
 package org.entur.bahamut.groupOfStopPlaces;
 
 import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
-import org.entur.geocoder.model.PeliasDocument;
 import org.rutebanken.netex.model.GroupOfStopPlaces;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 @Component
@@ -19,7 +14,7 @@ public class GroupOfStopPlacesBoostConfiguration {
     private final double gosBoostFactor;
 
     @Autowired
-    public GroupOfStopPlacesBoostConfiguration(@Value("${pelias.gos.boost.factor.:1.0}") double gosBoostFactor) {
+    public GroupOfStopPlacesBoostConfiguration(@Value("${pelias.gos.boost.factor:1.0}") double gosBoostFactor) {
         this.gosBoostFactor = gosBoostFactor;
     }
 

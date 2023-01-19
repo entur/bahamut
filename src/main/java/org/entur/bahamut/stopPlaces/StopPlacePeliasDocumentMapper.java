@@ -1,28 +1,12 @@
-/*
- * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by
- * the European Commission - subsequent versions of the EUPL (the "Licence");
- * You may not use this work except in compliance with the Licence.
- * You may obtain a copy of the Licence at:
- *
- *   https://joinup.ec.europa.eu/software/page/eupl
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the Licence is distributed on an "AS IS" basis,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the Licence for the specific language governing permissions and
- * limitations under the Licence.
- *
- */
-
 package org.entur.bahamut.stopPlaces;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.entur.bahamut.data.BahamutData;
 import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchy;
 import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
 import org.entur.geocoder.model.*;
 import org.rutebanken.netex.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
@@ -30,16 +14,17 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static org.entur.bahamut.stopPlaces.Names.*;
+import static org.entur.bahamut.Utilities.filterUnique;
 import static org.entur.bahamut.stopPlaces.StopPlaceValidator.isValid;
 
 @Component
 public class StopPlacePeliasDocumentMapper {
 
-    public static final String STOP_PLACE_LAYER = "stop_place";
-    public static final String PARENT_STOP_PLACE_LAYER = "stop_place_parent";
-    public static final String CHILD_STOP_PLACE_LAYER = "stop_place_child";
-    public static final String DEFAULT_LANGUAGE = "no";
+    private static final Logger logger = LoggerFactory.getLogger(StopPlacePeliasDocumentMapper.class);
+
+    public static final String STOP_PLACE_LAYER = "StopPlace";
+    public static final String PARENT_STOP_PLACE_LAYER = "StopPlaceParent";
+    public static final String CHILD_STOP_PLACE_LAYER = "StopPlaceChild";
     public static final String DEFAULT_SOURCE = "nsr";
 
     public Stream<PeliasDocument> toPeliasDocuments(BahamutData bahamutData) {
@@ -47,7 +32,15 @@ public class StopPlacePeliasDocumentMapper {
                 .flatMap(stopPlaceHierarchy ->
                         toPeliasDocumentsForNames(stopPlaceHierarchy,
                                 bahamutData.stopPlacesPopularityCache()))
-                .filter(PeliasDocument::isValid);
+                .filter(StopPlacePeliasDocumentMapper::isValidPeliasDocument);
+    }
+
+    public static boolean isValidPeliasDocument(PeliasDocument peliasDocument) {
+        if (peliasDocument.getCenterPoint() == null) {
+            logger.debug("Removing invalid document where geometry is missing:" + peliasDocument.getId());
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -59,7 +52,7 @@ public class StopPlacePeliasDocumentMapper {
      */
     public Stream<PeliasDocument> toPeliasDocumentsForNames(StopPlaceHierarchy placeHierarchy,
                                                             StopPlacesPopularityCache stopPlacesPopularityCache) {
-        StopPlace place = placeHierarchy.place();
+        var place = placeHierarchy.place();
         if (!isValid(place)) {
             return Stream.empty();
         }
@@ -74,89 +67,59 @@ public class StopPlacePeliasDocumentMapper {
                 );
     }
 
-    private String createId(StopPlace stopPlace, AtomicInteger documentIndex) {
+    private static String createId(StopPlace stopPlace, AtomicInteger documentIndex) {
         var idSuffix = documentIndex.getAndAdd(1) > 0 ? "-" + documentIndex.getAndAdd(1) : "";
         return stopPlace.getId() + idSuffix;
     }
 
-    private PeliasDocument createPeliasDocument(String documentId,
-                                                MultilingualString documentName,
-                                                Long documentPopularity,
-                                                StopPlaceHierarchy placeHierarchy) {
+    private static List<MultilingualString> getNames(StopPlaceHierarchy placeHierarchy) {
+        List<MultilingualString> names = new ArrayList<>();
+
+        collectNames(placeHierarchy, names, true);
+        collectNames(placeHierarchy, names, false);
+
+        return filterUnique(names);
+    }
+
+    private static void collectNames(StopPlaceHierarchy placeHierarchy, List<MultilingualString> names, boolean up) {
         StopPlace place = placeHierarchy.place();
-        var document = new PeliasDocument(getLayer(placeHierarchy), DEFAULT_SOURCE, documentId);
-
-        setDefaultName(document, documentName);
-        setDisplayName(document, placeHierarchy);
-        setCentroid(document, place);
-        addIdToStreetNameToAvoidFalseDuplicates(document, place.getId());
-        setDescription(document, place);
-        setCategories(document, placeHierarchy);
-        setAlternativeNames(document, place);
-        setAlternativeNameLabels(document, placeHierarchy);
-        setDefaultAlias(document);
-        setPopularity(document, documentPopularity);
-        setTariffZones(document, place);
-        setParent(document, place);
-
-        return document;
-    }
-
-    private static void setCentroid(PeliasDocument document, StopPlace place) {
-        if (place.getCentroid() != null) {
-            var loc = place.getCentroid().getLocation();
-            document.setCenterPoint(new GeoPoint(loc.getLatitude().doubleValue(), loc.getLongitude().doubleValue()));
+        if (place.getName() != null) {
+            names.add(place.getName());
         }
-    }
 
-    private static void setDescription(PeliasDocument document, StopPlace place) {
-        if (place.getDescription() != null && !StringUtils.isEmpty(place.getDescription().getValue())) {
-            var lang = place.getDescription().getLang();
-            if (lang == null) {
-                lang = DEFAULT_LANGUAGE;
+        if (place.getAlternativeNames() != null
+                && !CollectionUtils.isEmpty(place.getAlternativeNames().getAlternativeName())) {
+
+            place.getAlternativeNames().getAlternativeName().stream()
+                    .filter(alternativeName ->
+                            alternativeName.getName() != null
+                                    && (NameTypeEnumeration.LABEL.equals(alternativeName.getNameType())
+                                    || alternativeName.getName().getLang() != null)
+                    ).forEach(n -> names.add(n.getName()));
+        }
+
+        if (up) {
+            if (placeHierarchy.parent() != null) {
+                collectNames(placeHierarchy.parent(), names, up);
             }
-            document.addDescription(lang, place.getDescription().getValue());
+        } else {
+            if (!CollectionUtils.isEmpty(placeHierarchy.children())) {
+                placeHierarchy.children().forEach(child -> collectNames(child, names, up));
+            }
         }
     }
 
-    private static void setCategories(PeliasDocument document,
-                                      StopPlaceHierarchy placeHierarchy) {
-        StopTypesSubMode.getStopTypeAndSubMode(placeHierarchy).stream()
-                .map(Pair::getLeft).filter(Objects::nonNull)
-                .map(StopTypeEnumeration::value)
-                .forEach(document::addCategory);
-    }
+    private static PeliasDocument createPeliasDocument(String documentId,
+                                                       MultilingualString documentName,
+                                                       Long documentPopularity,
+                                                       StopPlaceHierarchy placeHierarchy) {
 
-    /**
-     * Make stop place rank highest in autocomplete by setting popularity
-     */
-    private void setPopularity(PeliasDocument document, Long documentPopularity) {
-        document.setPopularity(documentPopularity);
-    }
+        var builder = new StopPlacePeliasDocumentBuilder(DEFAULT_SOURCE, getLayer(placeHierarchy), documentId);
 
-    private static void setTariffZones(PeliasDocument document, StopPlace place) {
-        if (place.getTariffZones() != null && place.getTariffZones().getTariffZoneRef() != null) {
-            place.getTariffZones().getTariffZoneRef().stream()
-                    .map(VersionOfObjectRefStructure::getRef).forEach(document::addTariffZone);
-
-
-            // A bug in elasticsearch 2.3.4 used for pelias causes prefix queries for array values to fail,
-            // thus making it impossible to query by tariff zone prefixes.
-            // Instead, adding tariff zone authorities as a distinct indexed name.
-            place.getTariffZones().getTariffZoneRef().stream()
-                    .map(zoneRef -> zoneRef.getRef().split(":")[0]).distinct()
-                    .forEach(document::addTariffZoneAuthority);
-        }
-    }
-
-    private static void setParent(PeliasDocument document, StopPlace place) {
-        if (place.getTopographicPlaceRef() != null) {
-            document.getParents().addOrReplaceParent(
-                    ParentType.UNKNOWN,
-                    place.getTopographicPlaceRef().getRef(),
-                    place.getTopographicPlaceRef().getRef()
-            );
-        }
+        return builder.withDocumentName(documentName)
+                .withPopularity(documentPopularity)
+                .withStopPlaceHierarchy(placeHierarchy)
+                .build();
     }
 
     /**
@@ -173,15 +136,5 @@ public class StopPlacePeliasDocumentMapper {
             return PARENT_STOP_PLACE_LAYER;
         }
         return STOP_PLACE_LAYER;
-    }
-
-    /**
-     * The Pelias APIs de-duper will throw away results with identical name, layer, parent and address.
-     * Setting unique ID in street part of address to avoid unique topographic places with identical
-     * names being de-duped.
-     * TODO: DO we need this ???
-     */
-    private static void addIdToStreetNameToAvoidFalseDuplicates(PeliasDocument document, String placeId) {
-        document.setAddressParts(new AddressParts("NOT_AN_ADDRESS-" + placeId));
     }
 }
