@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.entur.geocoder.model.AddressParts;
 import org.entur.geocoder.model.GeoPoint;
 import org.entur.geocoder.model.PeliasDocument;
+import org.entur.geocoder.model.PeliasId;
 import org.rutebanken.netex.model.GroupOfStopPlaces;
 import org.rutebanken.netex.model.LocationStructure;
 import org.rutebanken.netex.model.MultilingualString;
@@ -14,8 +15,8 @@ public class GroupOfStopPlacePeliasDocumentBuilder {
 
     private final PeliasDocument peliasDocument;
 
-    public GroupOfStopPlacePeliasDocumentBuilder(String source, String layer, String id) {
-        this.peliasDocument = new PeliasDocument(source, layer, id);
+    public GroupOfStopPlacePeliasDocumentBuilder(PeliasId peliasId) {
+        this.peliasDocument = new PeliasDocument(peliasId);
     }
 
     public PeliasDocument build() {

@@ -3,10 +3,7 @@ package org.entur.bahamut.stopPlaces;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.entur.bahamut.stopPlaces.stopPlaceHierarchy.StopPlaceHierarchy;
-import org.entur.geocoder.model.AddressParts;
-import org.entur.geocoder.model.GeoPoint;
-import org.entur.geocoder.model.ParentType;
-import org.entur.geocoder.model.PeliasDocument;
+import org.entur.geocoder.model.*;
 import org.rutebanken.netex.model.*;
 
 import java.util.Objects;
@@ -20,8 +17,8 @@ public class StopPlacePeliasDocumentBuilder {
 
     private final PeliasDocument peliasDocument;
 
-    public StopPlacePeliasDocumentBuilder(String source, String layer, String id) {
-        this.peliasDocument = new PeliasDocument(source, layer, id);
+    public StopPlacePeliasDocumentBuilder(PeliasId peliasId) {
+        this.peliasDocument = new PeliasDocument(peliasId);
     }
 
     public PeliasDocument build() {
@@ -139,7 +136,7 @@ public class StopPlacePeliasDocumentBuilder {
         if (place.getTopographicPlaceRef() != null) {
             peliasDocument.getParents().addOrReplaceParent(
                     ParentType.UNKNOWN,
-                    place.getTopographicPlaceRef().getRef(),
+                    PeliasId.of(place.getTopographicPlaceRef().getRef()),
                     place.getTopographicPlaceRef().getRef()
             );
         }

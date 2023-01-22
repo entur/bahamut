@@ -4,6 +4,7 @@ import org.entur.bahamut.Utilities;
 import org.entur.bahamut.data.BahamutData;
 import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
 import org.entur.geocoder.model.PeliasDocument;
+import org.entur.geocoder.model.PeliasId;
 import org.rutebanken.netex.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +26,6 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
 
     private static final Logger logger = LoggerFactory.getLogger(GroupOfStopPlacesPeliasDocumentMapper.class);
 
-    public static final String DEFAULT_SOURCE = "nsr";
     public static final String GROUP_OF_STOP_PLACES_CATEGORY = "GroupOfStopPlaces";
     public static final String GROUP_OF_STOP_PLACE_LAYER = "GroupOfStopPlaces";
 
@@ -45,7 +45,7 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
 
     public static boolean isValidPeliasDocument(PeliasDocument peliasDocument) {
         if (peliasDocument.getCenterPoint() == null) {
-            logger.debug("Removing invalid document where geometry is missing:" + peliasDocument.getId());
+            logger.debug("Removing invalid document where geometry is missing:" + peliasDocument.getPeliasId());
             return false;
         }
         return true;
@@ -74,6 +74,11 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
                         groupOfStopPlaces));
     }
 
+    private String createId(GroupOfStopPlaces stopPlace, AtomicInteger documentIndex) {
+        var idSuffix = documentIndex.getAndAdd(1) > 0 ? "-" + documentIndex.getAndAdd(1) : "";
+        return stopPlace.getId() + idSuffix;
+    }
+
     private static List<MultilingualString> getNames(GroupOfStopPlaces groupOfStopPlaces) {
         List<MultilingualString> names = new ArrayList<>();
         if (groupOfStopPlaces.getName() != null) {
@@ -90,22 +95,19 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
         return filterUnique(names);
     }
 
-    private static String createId(GroupOfStopPlaces groupOfStopPlaces, AtomicInteger documentIndex) {
-        var idSuffix = documentIndex.getAndAdd(1) > 0 ? "-" + documentIndex.getAndAdd(1) : "";
-        return groupOfStopPlaces.getId() + idSuffix;
-    }
-
     public static boolean isValidGroupOfStopPlaces(GroupOfStopPlaces object) {
         return CollectionUtils.isEmpty(object.getValidBetween())
                 || object.getValidBetween().stream().anyMatch(Utilities::isValidNow);
     }
 
     private static PeliasDocument toPeliasDocument(String documentId,
-                                            MultilingualString documentName,
-                                            Long documentPopularity,
-                                            GroupOfStopPlaces groupOfStopPlaces) {
+                                                   MultilingualString documentName,
+                                                   Long documentPopularity,
+                                                   GroupOfStopPlaces groupOfStopPlaces) {
 
-        return new GroupOfStopPlacePeliasDocumentBuilder(DEFAULT_SOURCE, GROUP_OF_STOP_PLACE_LAYER, documentId)
+        PeliasId peliasId = PeliasId.of(documentId).withLayer(GROUP_OF_STOP_PLACE_LAYER);
+
+        return new GroupOfStopPlacePeliasDocumentBuilder(peliasId)
                 .withDocumentName(documentName)
                 .withCategory(GROUP_OF_STOP_PLACES_CATEGORY)
                 .withPopularity(documentPopularity)

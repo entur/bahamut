@@ -25,7 +25,6 @@ public class StopPlacePeliasDocumentMapper {
     public static final String STOP_PLACE_LAYER = "StopPlace";
     public static final String PARENT_STOP_PLACE_LAYER = "StopPlaceParent";
     public static final String CHILD_STOP_PLACE_LAYER = "StopPlaceChild";
-    public static final String DEFAULT_SOURCE = "nsr";
 
     public Stream<PeliasDocument> toPeliasDocuments(BahamutData bahamutData) {
         return bahamutData.stopPlaceHierarchies().stream()
@@ -37,7 +36,7 @@ public class StopPlacePeliasDocumentMapper {
 
     public static boolean isValidPeliasDocument(PeliasDocument peliasDocument) {
         if (peliasDocument.getCenterPoint() == null) {
-            logger.debug("Removing invalid document where geometry is missing:" + peliasDocument.getId());
+            logger.debug("Removing invalid document where geometry is missing:" + peliasDocument.getPeliasId());
             return false;
         }
         return true;
@@ -67,9 +66,23 @@ public class StopPlacePeliasDocumentMapper {
                 );
     }
 
-    private static String createId(StopPlace stopPlace, AtomicInteger documentIndex) {
+    private String createId(StopPlace stopPlace, AtomicInteger documentIndex) {
         var idSuffix = documentIndex.getAndAdd(1) > 0 ? "-" + documentIndex.getAndAdd(1) : "";
         return stopPlace.getId() + idSuffix;
+    }
+
+    private static PeliasDocument createPeliasDocument(String documentId,
+                                                       MultilingualString documentName,
+                                                       Long documentPopularity,
+                                                       StopPlaceHierarchy placeHierarchy) {
+
+        PeliasId peliasId = PeliasId.of(documentId).withLayer(getLayer(placeHierarchy));
+
+        return new StopPlacePeliasDocumentBuilder(peliasId)
+                .withDocumentName(documentName)
+                .withPopularity(documentPopularity)
+                .withStopPlaceHierarchy(placeHierarchy)
+                .build();
     }
 
     private static List<MultilingualString> getNames(StopPlaceHierarchy placeHierarchy) {
@@ -109,21 +122,8 @@ public class StopPlacePeliasDocumentMapper {
         }
     }
 
-    private static PeliasDocument createPeliasDocument(String documentId,
-                                                       MultilingualString documentName,
-                                                       Long documentPopularity,
-                                                       StopPlaceHierarchy placeHierarchy) {
-
-        var builder = new StopPlacePeliasDocumentBuilder(DEFAULT_SOURCE, getLayer(placeHierarchy), documentId);
-
-        return builder.withDocumentName(documentName)
-                .withPopularity(documentPopularity)
-                .withStopPlaceHierarchy(placeHierarchy)
-                .build();
-    }
-
     /**
-     * Categorize multimodal stops with separate sources in order to be able to filter in queries.
+     * Categorize multimodal stops with separate layers in order to be able to filter in queries.
      * <p>
      * Multimodal parents with one layer
      * Multimodal children with another layer
