@@ -1,12 +1,10 @@
 package org.entur.bahamut.stopPlaces;
 
+import org.entur.bahamut.Utilities;
 import org.rutebanken.netex.model.BusSubmodeEnumeration;
 import org.rutebanken.netex.model.StopPlace;
-import org.rutebanken.netex.model.ValidBetween;
 import org.rutebanken.netex.model.VehicleModeEnumeration;
 import org.springframework.util.CollectionUtils;
-
-import java.time.LocalDateTime;
 
 public class StopPlaceValidator {
 
@@ -25,7 +23,7 @@ public class StopPlaceValidator {
         }
 
         return CollectionUtils.isEmpty(place.getValidBetween())
-                || place.getValidBetween().stream().anyMatch(StopPlaceValidator::isValidNow);
+                || place.getValidBetween().stream().anyMatch(Utilities::isValidNow);
     }
 
     private static boolean isQuayLessNonParentStop(StopPlace place) {
@@ -37,19 +35,5 @@ public class StopPlaceValidator {
                                     && Boolean.TRUE.toString().equalsIgnoreCase(kv.getValue()));
         }
         return false;
-    }
-
-    // Should compare instant with valid between from/to in timezone defined in PublicationDelivery,
-    // but makes little difference in practice
-    private static boolean isValidNow(ValidBetween validBetween) {
-        var now = LocalDateTime.now();
-        if (validBetween != null) {
-            if (validBetween.getFromDate() != null && validBetween.getFromDate().isAfter(now)) {
-                return false;
-            }
-
-            return validBetween.getToDate() == null || !validBetween.getToDate().isBefore(now);
-        }
-        return true;
     }
 }

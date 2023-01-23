@@ -1,34 +1,33 @@
 package org.entur.bahamut.groupOfStopPlaces;
 
-import org.apache.commons.lang3.StringUtils;
+import org.entur.bahamut.Utilities;
 import org.entur.bahamut.data.BahamutData;
 import org.entur.bahamut.stopPlaces.stopPlacePopularityCache.StopPlacesPopularityCache;
-import org.entur.geocoder.model.AddressParts;
-import org.entur.geocoder.model.GeoPoint;
 import org.entur.geocoder.model.PeliasDocument;
+import org.entur.geocoder.model.PeliasId;
 import org.rutebanken.netex.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.entur.bahamut.Utilities.filterUnique;
 
 /**
  * Map NeTEx GroupOfStopPlaces objects to Pelias documents.
  */
 @Component
 public class GroupOfStopPlacesPeliasDocumentMapper {
-    // Using substitute layer for GoS to avoid having to fork pelias (custom layers not configurable).
-    public static final String GROUP_OF_STOP_PLACE_LAYER = "group_of_stop_places";
-    public static final String DEFAULT_SOURCE = "nsr";
-    private static final String DEFAULT_LANGUAGE = "nor";
 
+    private static final Logger logger = LoggerFactory.getLogger(GroupOfStopPlacesPeliasDocumentMapper.class);
+
+    public static final String GROUP_OF_STOP_PLACES_CATEGORY = "GroupOfStopPlaces";
+    public static final String GROUP_OF_STOP_PLACE_LAYER = "GroupOfStopPlaces";
 
     private final GroupOfStopPlacesBoostConfiguration groupOfStopPlacesBoostConfiguration;
 
@@ -41,7 +40,15 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
                 .flatMap(groupOfStopPlaces ->
                         toPeliasDocumentsForNames(groupOfStopPlaces,
                                 bahamutData.stopPlacesPopularityCache()))
-                .filter(PeliasDocument::isValid);
+                .filter(GroupOfStopPlacesPeliasDocumentMapper::isValidPeliasDocument);
+    }
+
+    public static boolean isValidPeliasDocument(PeliasDocument peliasDocument) {
+        if (peliasDocument.getCenterPoint() == null) {
+            logger.debug("Removing invalid document where geometry is missing:" + peliasDocument.getPeliasId());
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -53,7 +60,7 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
     public Stream<PeliasDocument> toPeliasDocumentsForNames(GroupOfStopPlaces groupOfStopPlaces,
                                                             StopPlacesPopularityCache stopPlacesPopularityCache) {
 
-        if (!isValid(groupOfStopPlaces)) {
+        if (!isValidGroupOfStopPlaces(groupOfStopPlaces)) {
             return Stream.empty();
         }
 
@@ -67,85 +74,12 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
                         groupOfStopPlaces));
     }
 
-    private String createId(GroupOfStopPlaces groupOfStopPlaces, AtomicInteger documentIndex) {
+    private String createId(GroupOfStopPlaces stopPlace, AtomicInteger documentIndex) {
         var idSuffix = documentIndex.getAndAdd(1) > 0 ? "-" + documentIndex.getAndAdd(1) : "";
-        return groupOfStopPlaces.getId() + idSuffix;
+        return stopPlace.getId() + idSuffix;
     }
 
-    public static boolean isValid(GroupOfEntities_VersionStructure object) {
-        return CollectionUtils.isEmpty(object.getValidBetween())
-                || object.getValidBetween().stream().anyMatch(GroupOfStopPlacesPeliasDocumentMapper::isValidNow);
-    }
-
-    /*
-     * Should compare instant with valid between from/to in timezone defined in PublicationDelivery,
-     * but makes little difference in practice.
-     */
-    private static boolean isValidNow(ValidBetween validBetween) {
-        LocalDateTime now = LocalDateTime.now();
-        if (validBetween != null) {
-            if (validBetween.getFromDate() != null && validBetween.getFromDate().isAfter(now)) {
-                return false;
-            }
-
-            return validBetween.getToDate() == null || !validBetween.getToDate().isBefore(now);
-        }
-        return true;
-    }
-
-    private PeliasDocument toPeliasDocument(String documentId,
-                                            MultilingualString documentName,
-                                            Long documentPopularity,
-                                            GroupOfStopPlaces groupOfStopPlaces) {
-
-        PeliasDocument document = new PeliasDocument(GROUP_OF_STOP_PLACE_LAYER, DEFAULT_SOURCE, documentId);
-        if (documentName != null) {
-            document.setDefaultName(documentName.getValue());
-        }
-
-        /*
-         * Add official name as display name. Not a part of standard pelias model,
-         * will be copied to name.default before deduping and labelling in Entur-pelias API.
-         */
-        MultilingualString displayName = groupOfStopPlaces.getName();
-        if (displayName != null) {
-            document.setDisplayName(displayName.getValue());
-            if (displayName.getLang() != null) {
-                document.addAlternativeName(displayName.getLang(), displayName.getValue());
-            }
-        }
-
-        if (groupOfStopPlaces.getCentroid() != null) {
-            LocationStructure loc = groupOfStopPlaces.getCentroid().getLocation();
-            document.setCenterPoint(new GeoPoint(loc.getLatitude().doubleValue(), loc.getLongitude().doubleValue()));
-        }
-
-        addIdToStreetNameToAvoidFalseDuplicates(groupOfStopPlaces, document);
-
-        if (groupOfStopPlaces.getDescription() != null
-                && !StringUtils.isEmpty(groupOfStopPlaces.getDescription().getValue())) {
-            String lang = groupOfStopPlaces.getDescription().getLang();
-            if (lang == null) {
-                lang = DEFAULT_LANGUAGE;
-            }
-            document.addDescription(lang, groupOfStopPlaces.getDescription().getValue());
-        }
-
-        document.setPopularity(documentPopularity);
-        document.addCategory(GroupOfStopPlaces.class.getSimpleName());
-
-        return document;
-    }
-
-    /**
-     * The Pelias APIs deduper will throw away results with identical name, layer, parent and address. Setting unique ID in street part of address to avoid unique
-     * topographic places with identical names being deduped.
-     */
-    private void addIdToStreetNameToAvoidFalseDuplicates(GroupOfStopPlaces groupOfStopPlaces, PeliasDocument document) {
-        document.setAddressParts(new AddressParts("NOT_AN_ADDRESS-" + groupOfStopPlaces.getId()));
-    }
-
-    private List<MultilingualString> getNames(GroupOfStopPlaces groupOfStopPlaces) {
+    private static List<MultilingualString> getNames(GroupOfStopPlaces groupOfStopPlaces) {
         List<MultilingualString> names = new ArrayList<>();
         if (groupOfStopPlaces.getName() != null) {
             names.add(groupOfStopPlaces.getName());
@@ -161,12 +95,23 @@ public class GroupOfStopPlacesPeliasDocumentMapper {
         return filterUnique(names);
     }
 
-    public static List<MultilingualString> filterUnique(List<MultilingualString> strings) {
-        return strings.stream().filter(distinctByKey(MultilingualString::getValue)).collect(Collectors.toList());
+    public static boolean isValidGroupOfStopPlaces(GroupOfStopPlaces object) {
+        return CollectionUtils.isEmpty(object.getValidBetween())
+                || object.getValidBetween().stream().anyMatch(Utilities::isValidNow);
     }
 
-    protected static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
-        Map<Object, Boolean> seen = new ConcurrentHashMap<>();
-        return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
+    private static PeliasDocument toPeliasDocument(String documentId,
+                                                   MultilingualString documentName,
+                                                   Long documentPopularity,
+                                                   GroupOfStopPlaces groupOfStopPlaces) {
+
+        PeliasId peliasId = PeliasId.of(documentId).withLayer(GROUP_OF_STOP_PLACE_LAYER);
+
+        return new GroupOfStopPlacePeliasDocumentBuilder(peliasId)
+                .withDocumentName(documentName)
+                .withCategory(GROUP_OF_STOP_PLACES_CATEGORY)
+                .withPopularity(documentPopularity)
+                .withGroupOfStopPlaces(groupOfStopPlaces)
+                .build();
     }
 }
